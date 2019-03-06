@@ -1,0 +1,6 @@
+[submodule "rendering/external/glfw"]
+	path = rendering/external/glfw
+	url = https://github.com/glfw/glfw
+[submodule "rendering/external/glm"]
+	path = rendering/external/glm
+	url = https://github.com/g-truc/glm
