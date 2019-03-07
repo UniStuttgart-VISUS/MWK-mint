@@ -4,3 +4,12 @@
 [submodule "rendering/external/glm"]
 	path = rendering/external/glm
 	url = https://github.com/g-truc/glm
+[submodule "interop/external/Spout2"]
+	path = interop/external/Spout2
+	url = https://github.com/geringsj/Spout2
+[submodule "interop/external/libzmq"]
+	path = interop/external/libzmq
+	url = https://github.com/geringsj/libzmq
+[submodule "interop/external/cppzmq"]
+	path = interop/external/cppzmq
+	url = https://github.com/geringsj/cppzmq
