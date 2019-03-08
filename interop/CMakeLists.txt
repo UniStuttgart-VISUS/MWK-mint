@@ -36,12 +36,10 @@ set(WITH_PERF_TOOL OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/libzmq)
 add_subdirectory(external/cppzmq)
 
-# RapidJSON
-set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
-set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(RAPIDJSON_BUILD_THIRDPARTY_GTEST OFF CACHE BOOL "" FORCE)
-add_subdirectory(external/rapidjson)
+# json
+set(BUILD_TESTING OFF CACHE INTERNAL "")
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+add_subdirectory(external/json)
 
 add_library(interop
     src/interop.cpp)
@@ -60,11 +58,12 @@ target_compile_features(interop
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(interop
-	Spout2
-	libzmq
-	cppzmq
-    #-OSC
-	rapidjson
+	PRIVATE
+		Spout2
+		libzmq
+		cppzmq
+		nlohmann_json::nlohmann_json
+		#-OSC
 )
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).

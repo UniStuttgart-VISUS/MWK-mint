@@ -13,6 +13,6 @@
 [submodule "interop/external/cppzmq"]
 	path = interop/external/cppzmq
 	url = https://github.com/geringsj/cppzmq
-[submodule "interop/external/rapidjson"]
-	path = interop/external/rapidjson
-	url = https://github.com/geringsj/rapidjson
+[submodule "interop/external/json"]
+	path = interop/external/json
+	url = https://github.com/nlohmann/json

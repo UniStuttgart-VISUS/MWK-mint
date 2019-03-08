@@ -1,6 +1,6 @@
 #include <zmq.hpp>
 #include "Spout.h"
-#include "rapidjson/writer.h"
+#include <nlohmann/json.hpp>
 
 int func()
 {
