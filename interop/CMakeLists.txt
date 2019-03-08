@@ -24,6 +24,7 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/../.git")
 endif()
 
 # find external dependencies (git submodules in ./external)
+# Spout2
 add_subdirectory(external/Spout2)
 
 # ZeroMQ
@@ -35,6 +36,12 @@ set(WITH_PERF_TOOL OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/libzmq)
 add_subdirectory(external/cppzmq)
 
+# RapidJSON
+set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(RAPIDJSON_BUILD_THIRDPARTY_GTEST OFF CACHE BOOL "" FORCE)
+add_subdirectory(external/rapidjson)
 
 add_library(interop
     src/interop.cpp)
@@ -57,7 +64,7 @@ target_link_libraries(interop
 	libzmq
 	cppzmq
     #-OSC
-	#-RapidJSON
+	rapidjson
 )
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
