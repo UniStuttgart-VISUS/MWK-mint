@@ -219,3 +219,7 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint he
 	m_spout->SendTexture(textureHandle, GL_TEXTURE_2D, m_width, m_height);
 }
 
+void interop::TextureSender::sendTexture(glFramebuffer& fb) {
+	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
+}
+

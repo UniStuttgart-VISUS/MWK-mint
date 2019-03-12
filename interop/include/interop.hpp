@@ -32,12 +32,14 @@ using uint = unsigned int;
 		void init(std::string name, uint width = 1, uint height = 1);
 		void destroy();
 		void sendTexture(uint texture, uint width, uint height);
+		void sendTexture(glFramebuffer& fb);
 
 		std::string m_name = "";
 		uint m_width = 0;
 		uint m_height = 0;
 		void* m_sender;
 	};
+
 
 	// all vectors, matrices and quaternions follow OpenGL and GLM conventions
 	// in the sense that the data can directly be passed to GL and GLM functions
