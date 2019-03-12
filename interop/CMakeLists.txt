@@ -30,8 +30,8 @@ add_subdirectory(external/Spout2)
 # ZeroMQ
 set(CPPZMQ_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ZMQ_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED ON CACHE BOOL "" FORCE)
-set(BUILD_STATIC OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(WITH_PERF_TOOL OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/libzmq)
 add_subdirectory(external/cppzmq)
@@ -42,14 +42,16 @@ set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_subdirectory(external/json)
 
 add_library(interop
-    src/interop.cpp)
+    src/interop.cpp
+    include/interop.hpp
+)
 	
 # Define headers for this library. PUBLIC headers are used for
 # compiling the library, and will be added to consumers' build paths.
 target_include_directories(interop PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
-    PRIVATE src)
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # If we have compiler requirements for this library, list them here
 target_compile_features(interop
@@ -60,18 +62,22 @@ target_compile_features(interop
 target_link_libraries(interop
 	PRIVATE
 		Spout2
-		libzmq
-		cppzmq
+		libzmq-static
+		cppzmq-static
 		nlohmann_json::nlohmann_json
 		#-OSC
 )
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
-# install(TARGETS interop EXPORT MyLibraryConfig
-#     ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#     LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#     RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})  # This is for Windows
-# install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+include(GNUInstallDirs)
+install(TARGETS interop #EXPORT MyLibraryConfig
+	EXPORT ${PROJECT_NAME}-targets
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also

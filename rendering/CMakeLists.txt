@@ -42,8 +42,10 @@ set(BUILD_STATIC_LIBS ON CACHE BOOL "" FORCE)
 set(GLM_TEST_ENABLE OFF CACHE BOOL "" FORCE)
 set(GLM_TEST_ENABLE_CXX_14 ON CACHE BOOL "" FORCE)
 add_subdirectory(external/glm/)
-	
-set(LINK_LIBS_EXTERNAL glad glm glfw ${OPENGL_glu_LIBRARY})
+
+add_subdirectory(../interop interop)
+
+set(LINK_LIBS_EXTERNAL interop glad glm glfw ${OPENGL_glu_LIBRARY})
 set(INCLUDE_LIBS_EXTERNAL ${OPENGL_INCLUDE_DIR})
 	
 # build render app

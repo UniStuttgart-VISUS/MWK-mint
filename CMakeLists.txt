@@ -9,5 +9,5 @@ project(mint VERSION 1.0
 # include libraries?
 
 # add sub-projects
-add_subdirectory(interop)
+#add_subdirectory(interop)
 add_subdirectory(rendering)
