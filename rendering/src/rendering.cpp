@@ -155,12 +155,25 @@ int main(void)
 	glEnableVertexAttribArray(vcol_location);
 	glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*) (sizeof(float) * 2));
 
+	interop::glFramebuffer fbo; // has RGBA color and depth buffer
+	fbo.init();
+	interop::TextureSender ts; // has spout sender
+	ts.init("render_interop_test");
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
 		float ratio = width / (float) height;
 		// default framebuffer
+		glViewport(0, 0, width, height);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// render into custom framebuffer
+		if(width != fbo.m_width || height != fbo.m_height) {
+			fbo.resizeTexture(width, height);
+		}
+		fbo.bind();
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -176,9 +189,16 @@ int main(void)
 		glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
+		fbo.unbind();
+		ts.sendTexture(fbo.m_glTextureRGBA8, width, height);
+		fbo.blitTexture(); // blit custom fbo to default framebuffer
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	fbo.destroy();
+	ts.destroy();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
