@@ -237,9 +237,9 @@ namespace {
 
 		try {
 			std::string identity{"InteropLib"};
-			int keptMessagesCount = 1;
 			socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
-			socket.setsockopt(ZMQ_CONFLATE, &keptMessagesCount, sizeof(keptMessagesCount));
+			//int keepOnlyLastMessage = 1;
+			//socket.setsockopt(ZMQ_CONFLATE, &keepOnlyLastMessage, sizeof(keepOnlyLastMessage));
 			socket.setsockopt(ZMQ_SUBSCRIBE, filterName.data(), filterName.size());
 			socket.connect(networkAddress);
 		}
@@ -253,7 +253,7 @@ namespace {
 			//  Read envelope with address
 			zmq::message_t address_msg;
 			socket.recv(&address_msg);
-			//std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
+			std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
 
 			//  Read message contents
 			zmq::message_t content_msg;
