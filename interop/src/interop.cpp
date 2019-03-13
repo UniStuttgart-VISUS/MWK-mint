@@ -18,10 +18,10 @@ int func()
 // we need to load some GL function names by hand if we don't use a loader library
 // TODO: cross-link with GL application?
 namespace {
+
 #ifndef APIENTRYP
 #define APIENTRYP APIENTRY *
 #endif
-
 	typedef void (APIENTRYP glDrawBuffersFuncPtr)(GLsizei n, const GLenum *bufs);
 	glDrawBuffersFuncPtr my_glDrawBuffers;
 	#define glDrawBuffersEXT my_glDrawBuffers
@@ -33,6 +33,8 @@ namespace {
 		const auto fptr = wglGetProcAddress("glDrawBuffers");
 		glDrawBuffersEXT = (glDrawBuffersFuncPtr)fptr;
 	}
+
+	zmq::context_t g_zmqContext{1};
 }
 
 static const void savePreviousFbo(interop::glFramebuffer* fbo)
@@ -221,5 +223,69 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint he
 
 void interop::TextureSender::sendTexture(glFramebuffer& fb) {
 	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
+}
+
+namespace {
+	void runThread_DataReceiver(interop::DataReceiver* dr, const std::string& networkAddress, const std::string& filterName) {
+		if (dr == nullptr)
+			return;
+
+		auto& threadRunning = dr->m_threadRunning;
+		std::string& msgData = dr->m_msgData;
+
+		zmq::socket_t socket{g_zmqContext, ZMQ_SUB};
+
+		try {
+			std::string identity{"InteropLib"};
+			int keptMessagesCount = 1;
+			socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
+			socket.setsockopt(ZMQ_CONFLATE, &keptMessagesCount, sizeof(keptMessagesCount));
+			socket.setsockopt(ZMQ_SUBSCRIBE, filterName.data(), filterName.size());
+			socket.connect(networkAddress);
+		}
+		catch (std::exception& e){
+			std::cout << "InteropLib: connecting zmq socket failed: " << e.what() << std::endl;
+			return;
+		}
+		threadRunning.store(true);
+
+		while (threadRunning) {
+			//  Read envelope with address
+			zmq::message_t address_msg;
+			socket.recv(&address_msg);
+			//std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
+
+			//  Read message contents
+			zmq::message_t content_msg;
+			socket.recv(&content_msg);
+			std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
+
+			// TODO: store message content for user to retrieve+parse
+		}
+
+		socket.close();
+	}
+}
+
+interop::DataReceiver::~DataReceiver() {
+	stop();
+}
+
+void interop::DataReceiver::start(const std::string& networkAddress, const std::string& filterName) {
+	if (m_threadRunning)
+		return;
+
+	m_thread = std::thread(runThread_DataReceiver, this, networkAddress, filterName);
+}
+
+void interop::DataReceiver::stop() {
+	if (m_threadRunning) {
+		m_threadRunning.store(false);
+		m_thread.join();
+	}
+}
+
+template <typename Datatype>
+Datatype getData() {
 }
 

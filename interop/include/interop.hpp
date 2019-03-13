@@ -2,6 +2,8 @@
 #pragma once
 
 #include <string>
+#include <atomic>
+#include <thread>
 
 namespace interop {
 
@@ -38,6 +40,23 @@ using uint = unsigned int;
 		uint m_width = 0;
 		uint m_height = 0;
 		void* m_sender;
+	};
+
+	struct DataSender {
+	};
+
+	struct DataReceiver {
+		~DataReceiver();
+
+		void start(const std::string& networkAddress, const std::string& filterName); // address following zmq conventions, e.g. "tcp://localhost:1234"
+		void stop();
+
+		template <typename Datatype>
+		Datatype getData();
+
+		std::string m_msgData;
+		std::thread m_thread;
+		std::atomic<bool> m_threadRunning = false;
 	};
 
 
