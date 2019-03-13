@@ -160,6 +160,9 @@ int main(void)
 	interop::TextureSender ts; // has spout sender
 	ts.init("render_interop_test");
 
+	interop::DataReceiver dr;
+	dr.start("tcp://localhost:12345", "");
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int width, height;
@@ -196,6 +199,8 @@ int main(void)
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	dr.stop();
 
 	fbo.destroy();
 	ts.destroy();
