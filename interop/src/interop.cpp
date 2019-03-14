@@ -230,6 +230,7 @@ namespace {
 		if (dr == nullptr)
 			return;
 
+		auto& mutex = dr->m_mutex;
 		auto& threadRunning = dr->m_threadRunning;
 		std::string& msgData = dr->m_msgData;
 
@@ -253,14 +254,19 @@ namespace {
 			//  Read envelope with address
 			zmq::message_t address_msg;
 			socket.recv(&address_msg);
-			std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
 
 			//  Read message contents
 			zmq::message_t content_msg;
 			socket.recv(&content_msg);
-			std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
 
-			// TODO: store message content for user to retrieve+parse
+			// store message content for user to retrieve+parse
+			if(content_msg.size() > 0) {
+				std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
+				std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
+
+				std::lock_guard<std::mutex> lock{mutex};
+				msgData.assign(static_cast<char*>(content_msg.data()), content_msg.size());
+			}
 		}
 
 		socket.close();
@@ -285,7 +291,20 @@ void interop::DataReceiver::stop() {
 	}
 }
 
-template <typename Datatype>
-Datatype getData() {
+void interop::DataReceiver::getDataCopy() {
+	std::lock_guard<std::mutex> lock{m_mutex};
+	m_msgDataCopy.assign(m_msgData);
+}
+
+//template <typename Datatype>
+//Datatype interop::DataReceiver::getData() {
+//	this->getDataCopy();
+//	auto& byteData = m_msgDataCopy;
+//}
+
+template <>
+interop::StereoCameraConfiguration interop::DataReceiver::getData<interop::StereoCameraConfiguration>() {
+	this->getDataCopy();
+	auto& byteData = m_msgDataCopy;
 }
 

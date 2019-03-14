@@ -4,6 +4,7 @@
 #include <string>
 #include <atomic>
 #include <thread>
+#include <mutex>
 
 namespace interop {
 
@@ -55,7 +56,10 @@ using uint = unsigned int;
 		Datatype getData();
 
 		std::string m_msgData;
+		std::string m_msgDataCopy;
+		void getDataCopy();
 		std::thread m_thread;
+		std::mutex m_mutex;
 		std::atomic<bool> m_threadRunning = false;
 	};
 
@@ -131,4 +135,9 @@ using uint = unsigned int;
 		vec4 min;
 		vec4 max;
 	};
+
+
+
+template <>
+StereoCameraConfiguration DataReceiver::getData<StereoCameraConfiguration>();
 }
