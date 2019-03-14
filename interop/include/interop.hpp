@@ -115,9 +115,9 @@ using uint = unsigned int;
 	};
 
 	// to be applied as model matrix (or equivalent) to the dataset before rendering
-	struct ModelConfiguration {
+	struct ModelPose {
 		vec4 translation;
-		float scale = 1.0f;
+		vec4 scale;
 		vec4 rotation_quaternion;
 
 		mat4 modelMatrix;
@@ -126,7 +126,7 @@ using uint = unsigned int;
 	// renderer receives this config from unity
 	struct DatasetRenderConfiguration {
 		StereoCameraConfiguration stereoCamera;
-		ModelConfiguration modelTransform;
+		ModelPose modelTransform;
 	};
 
 	// renderer sends bounding box (in world space) for its geometry to unity
