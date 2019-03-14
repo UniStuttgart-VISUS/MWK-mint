@@ -302,9 +302,179 @@ void interop::DataReceiver::getDataCopy() {
 //	auto& byteData = m_msgDataCopy;
 //}
 
-template <>
-interop::StereoCameraConfiguration interop::DataReceiver::getData<interop::StereoCameraConfiguration>() {
-	this->getDataCopy();
-	auto& byteData = m_msgDataCopy;
+// -------------------------------------------------
+// --- JSON converters for our interop data types
+// -------------------------------------------------
+#define write(name) {# name, v. ## name}
+#define read(name) j.at(# name).get_to(v. ## name);
+
+// Add json converter functions as follows: 
+//
+// void to_json(json& j, const YourOwnType& v) {
+// 	j = json{
+// 		write(member1),
+// 		...
+// 		write(memberN)
+// 	};
+// }
+// void from_json(const json& j, YourOwnType& v) {
+// 	read(member1);
+// 	...
+// 	read(memberN);
+// }
+namespace interop {
+	void to_json(json& j, const vec4& v) {
+		j = json{
+			write(x),
+			write(y),
+			write(z),
+			write(w)
+		};
+	}
+	void from_json(const json& j, vec4& v) {
+		read(x);
+		read(y);
+		read(z);
+		read(w);
+	}
+
+	// mat4 is somewhat special regarding the json format coming from Unity
+	void to_json(json& j, const mat4& v) {
+		j = json{
+			{"e00" , v.data[0].x}, {"e01" , v.data[1].x}, {"e02" , v.data[2].x}, {"e03" , v.data[3].x},
+			{"e10" , v.data[0].y}, {"e11" , v.data[1].y}, {"e12" , v.data[2].y}, {"e13" , v.data[3].y},
+			{"e20" , v.data[0].z}, {"e21" , v.data[1].z}, {"e22" , v.data[2].z}, {"e23" , v.data[3].z}, 
+			{"e30" , v.data[0].w}, {"e31" , v.data[1].w}, {"e32" , v.data[2].w}, {"e33" , v.data[3].w}
+		};
+	}
+#define rm(name,value) j.at(# name).get_to(## value);
+	void from_json(const json& j, mat4& v) {
+		rm("e00", v.data[0].x); rm("e01", v.data[1].x); rm("e02", v.data[2].x); rm("e03", v.data[3].x);
+		rm("e10", v.data[0].y); rm("e11", v.data[1].y); rm("e12", v.data[2].y); rm("e13", v.data[3].y);
+		rm("e20", v.data[0].z); rm("e21", v.data[1].z); rm("e22", v.data[2].z); rm("e23", v.data[3].z); 
+		rm("e30", v.data[0].w); rm("e31", v.data[1].w); rm("e32", v.data[2].w); rm("e33", v.data[3].w);
+	}
+
+	void to_json(json& j, const CameraView& v) {
+		j = json{
+			write(eyePos),
+			write(lookAtPos),
+			write(camUp)
+		};
+	}
+	void from_json(const json& j, CameraView& v) {
+		read(eyePos);
+		read(lookAtPos);
+		read(camUp);
+	}
+
+	void to_json(json& j, const CameraProjection& v) {
+		j = json{
+			write(fieldOfViewY_deg),
+			write(nearClipPlane),
+			write(farClipPlane),
+			write(aspect),
+			write(pixelWidth),
+			write(pixelHeight)
+		};
+	}
+	void from_json(const json& j, CameraProjection& v) {
+		read(fieldOfViewY_deg);
+		read(nearClipPlane);
+		read(farClipPlane);
+		read(aspect);
+		read(pixelWidth);
+		read(pixelHeight);
+	}
+
+	void to_json(json& j, const CameraConfiguration& v) {
+		j = json{
+			write(viewParameters),
+			write(projectionParameters),
+			write(viewMatrix),
+			write(projectionMatrix)
+		};
+	}
+	void from_json(const json& j, CameraConfiguration& v) {
+		read(viewParameters);
+		read(projectionParameters);
+		read(viewMatrix);
+		read(projectionMatrix);
+	}
+
+	void to_json(json& j, const StereoCameraConfiguration& v) {
+		j = json{
+			write(stereoConvergence),
+			write(stereoSeparation),
+			write(cameraLeftEye),
+			write(cameraRightEye)
+		};
+	}
+	void from_json(const json& j, StereoCameraConfiguration& v) {
+		read(stereoConvergence);
+		read(stereoSeparation);
+		read(cameraLeftEye);
+		read(cameraRightEye);
+	}
+
+	void to_json(json& j, const BoundingBoxCorners& v) {
+		j = json{
+			write(min),
+			write(max)
+		};
+	}
+	void from_json(const json& j, BoundingBoxCorners& v) {
+		read(min);
+		read(max);
+	}
+
+	void to_json(json& j, const ModelPose& v) {
+		j = json{
+			write(translation),
+			write(scale),
+			write(rotation_quaternion),
+			write(modelMatrix)
+		};
+	}
+	void from_json(const json& j, ModelPose& v) {
+		read(translation);
+		read(scale);
+		read(rotation_quaternion);
+		read(modelMatrix);
+	}
+
+	void to_json(json& j, const DatasetRenderConfiguration& v) {
+		j = json{
+			write(stereoCamera),
+			write(modelTransform)
+		};
+	}
+	void from_json(const json& j, DatasetRenderConfiguration& v) {
+		read(stereoCamera);
+		read(modelTransform);
+	}
 }
 
+#define make_dataGet(DataTypeName) \
+template <> \
+interop::## DataTypeName interop::DataReceiver::getData<interop::## DataTypeName>() { \
+	this->getDataCopy(); \
+	auto& byteData = m_msgDataCopy; \
+ \
+	interop::DataTypeName ret; \
+ \
+	json j = byteData; \
+	ret = j.get<interop::## DataTypeName>(); \
+ \
+	return ret; \
+}
+
+make_dataGet(BoundingBoxCorners)
+make_dataGet(DatasetRenderConfiguration)
+make_dataGet(ModelPose)
+make_dataGet(StereoCameraConfiguration)
+make_dataGet(CameraConfiguration)
+make_dataGet(CameraProjection)
+make_dataGet(CameraView)
+make_dataGet(mat4)
+make_dataGet(vec4)

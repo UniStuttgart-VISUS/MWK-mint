@@ -137,7 +137,18 @@ using uint = unsigned int;
 	};
 
 
+#define make_dataGet(DataTypeName) \
+template <> \
+## DataTypeName DataReceiver::getData<## DataTypeName>();
 
-template <>
-StereoCameraConfiguration DataReceiver::getData<StereoCameraConfiguration>();
+make_dataGet(BoundingBoxCorners)
+make_dataGet(DatasetRenderConfiguration)
+make_dataGet(ModelPose)
+make_dataGet(StereoCameraConfiguration)
+make_dataGet(CameraConfiguration)
+make_dataGet(CameraProjection)
+make_dataGet(CameraView)
+make_dataGet(mat4)
+make_dataGet(vec4)
+
 }
