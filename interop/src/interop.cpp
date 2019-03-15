@@ -232,7 +232,10 @@ namespace {
 
 		auto& mutex = dr->m_mutex;
 		auto& threadRunning = dr->m_threadRunning;
+		auto& newDataFlag = dr->m_newDataFlag;
+		newDataFlag.test_and_set(); // sets true
 		std::string& msgData = dr->m_msgData;
+		std::string filter = filterName;
 
 		zmq::socket_t socket{g_zmqContext, ZMQ_SUB};
 
@@ -240,7 +243,7 @@ namespace {
 			std::string identity{"InteropLib"};
 			socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
 			//socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message, drop old ones
-			socket.setsockopt(ZMQ_SUBSCRIBE, filterName.data(), filterName.size()); // only receive messages with prefix given by filterName
+			socket.setsockopt(ZMQ_SUBSCRIBE, filter.data(), filter.size()); // only receive messages with prefix given by filterName
 			socket.setsockopt(ZMQ_RCVTIMEO, 1000 /*ms*/); // timeout after not receiving messages for 1 second
 			socket.connect(networkAddress);
 		}
@@ -251,21 +254,30 @@ namespace {
 		threadRunning.store(true);
 
 		while (threadRunning) {
-			//  Read envelope with address
-			zmq::message_t address_msg;
-			socket.recv(&address_msg);
 
-			//  Read message contents
+			zmq::message_t address_msg;
 			zmq::message_t content_msg;
+
+			if (!filter.empty())
+				socket.recv(&address_msg);
 			socket.recv(&content_msg);
+
+			if ((filter.size() && !address_msg.size())
+				|| (filter.size() && filter.compare(0, address_msg.size(), static_cast<const char*>(address_msg.data()), address_msg.size()) != 0))
+			{
+				//std::cout << "filter: \"" << filter << "\"" << std::endl;
+				//std::cout << "recevd: \"" << std::string{static_cast<const char*>(address_msg.data()), address_msg.size()}  << "\"" << std::endl;
+				continue;
+			}
 
 			// store message content for user to retrieve+parse
 			if(content_msg.size() > 0) {
-				std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
-				std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
+				//std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
+				//std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
 
 				std::lock_guard<std::mutex> lock{mutex};
 				msgData.assign(static_cast<char*>(content_msg.data()), content_msg.size());
+				newDataFlag.clear(std::memory_order_release); // Sets false. All writes in the current thread are visible in other threads that acquire the same atomic variable
 			}
 		}
 
@@ -291,9 +303,14 @@ void interop::DataReceiver::stop() {
 	}
 }
 
-void interop::DataReceiver::getDataCopy() {
-	std::lock_guard<std::mutex> lock{m_mutex};
-	m_msgDataCopy.assign(m_msgData);
+bool interop::DataReceiver::getDataCopy() {
+	if (! m_newDataFlag.test_and_set(std::memory_order_acquire)) { // Sets true, returns previous value. All writes in other threads that release the same atomic variable are visible in the current thread.
+		std::lock_guard<std::mutex> lock{m_mutex};
+		m_msgDataCopy.assign(m_msgData);
+		return true;
+	}
+
+	return false;
 }
 
 //template <typename Datatype>
@@ -457,24 +474,26 @@ namespace interop {
 
 #define make_dataGet(DataTypeName) \
 template <> \
-interop::## DataTypeName interop::DataReceiver::getData<interop::## DataTypeName>() { \
-	this->getDataCopy(); \
-	auto& byteData = m_msgDataCopy; \
+bool interop::DataReceiver::getData<DataTypeName>(DataTypeName& v) { \
+	if(this->getDataCopy()) \
+	{ \
+		auto& byteData = m_msgDataCopy; \
+		if(byteData.size()) { \
+			json j = json::parse(byteData); \
+			v = j.get<DataTypeName>(); \
+			return true; \
+		} \
+	} \
  \
-	interop::DataTypeName ret; \
- \
-	json j = byteData; \
-	ret = j.get<interop::## DataTypeName>(); \
- \
-	return ret; \
+	return false; \
 }
 
-make_dataGet(BoundingBoxCorners)
-make_dataGet(DatasetRenderConfiguration)
-make_dataGet(ModelPose)
-make_dataGet(StereoCameraConfiguration)
-make_dataGet(CameraConfiguration)
-make_dataGet(CameraProjection)
-make_dataGet(CameraView)
-make_dataGet(mat4)
-make_dataGet(vec4)
+make_dataGet(interop::BoundingBoxCorners)
+make_dataGet(interop::DatasetRenderConfiguration)
+make_dataGet(interop::ModelPose)
+make_dataGet(interop::StereoCameraConfiguration)
+make_dataGet(interop::CameraConfiguration)
+make_dataGet(interop::CameraProjection)
+make_dataGet(interop::CameraView)
+make_dataGet(interop::mat4)
+make_dataGet(interop::vec4)

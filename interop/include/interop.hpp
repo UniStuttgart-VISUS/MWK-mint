@@ -53,14 +53,15 @@ using uint = unsigned int;
 		void stop();
 
 		template <typename Datatype>
-		Datatype getData();
+		bool getData(Datatype& v);
 
-		std::string m_msgData;
-		std::string m_msgDataCopy;
-		void getDataCopy();
+		std::string m_msgData = "";
+		std::string m_msgDataCopy = "";
+		bool getDataCopy();
 		std::thread m_thread;
 		std::mutex m_mutex;
 		std::atomic<bool> m_threadRunning = false;
+		std::atomic_flag m_newDataFlag;
 	};
 
 
@@ -144,7 +145,7 @@ using uint = unsigned int;
 
 #define make_dataGet(DataTypeName) \
 template <> \
-## DataTypeName DataReceiver::getData<## DataTypeName>();
+bool DataReceiver::getData<DataTypeName>(DataTypeName& v);
 
 make_dataGet(BoundingBoxCorners)
 make_dataGet(DatasetRenderConfiguration)
@@ -155,5 +156,6 @@ make_dataGet(CameraProjection)
 make_dataGet(CameraView)
 make_dataGet(mat4)
 make_dataGet(vec4)
+#undef make_dataGet
 
 }
