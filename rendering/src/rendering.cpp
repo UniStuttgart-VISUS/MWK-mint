@@ -28,7 +28,7 @@ static const struct
 	float x, y;
 	float r, g, b;
 } vertices[3] =
-{
+{   // pos(x,y)   , col(r,g,b)
 	{ -0.6f, -0.4f, 1.f, 0.f, 0.f },
 	{  0.6f, -0.4f, 0.f, 1.f, 0.f },
 	{   0.f,  0.6f, 0.f, 0.f, 1.f }
@@ -105,7 +105,7 @@ void APIENTRY opengl_debug_message_callback(
 	if (source == GL_DEBUG_SOURCE_API || source == GL_DEBUG_SOURCE_SHADER_COMPILER)
 		if (type == GL_DEBUG_TYPE_ERROR || type == GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR || type == GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR)
 			if (severity == GL_DEBUG_SEVERITY_HIGH || severity == GL_DEBUG_SEVERITY_MEDIUM)
-				std::cout << "GL Error: " << message << std::endl;
+				std::cout << "OpenGL Error: " << message << std::endl;
 }
 
 int main(void)
