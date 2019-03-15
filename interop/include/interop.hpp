@@ -124,7 +124,7 @@ using uint = unsigned int;
 	struct ModelPose {
 		vec4 translation;
 		vec4 scale;
-		vec4 rotation_quaternion;
+		vec4 rotation_axis_angle; // angle in radians, as expected by GLM
 
 		mat4 modelMatrix;
 	};

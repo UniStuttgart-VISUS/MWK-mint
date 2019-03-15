@@ -451,14 +451,14 @@ namespace interop {
 		j = json{
 			writeVal(translation),
 			writeVal(scale),
-			writeVal(rotation_quaternion),
+			writeVal(rotation_axis_angle),
 			writeVal(modelMatrix)
 		};
 	}
 	void from_json(const json& j, ModelPose& v) {
 		readObj(translation);
 		readObj(scale);
-		readObj(rotation_quaternion);
+		readObj(rotation_axis_angle);
 		readObj(modelMatrix);
 	}
 
