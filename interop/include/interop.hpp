@@ -77,7 +77,12 @@ using uint = unsigned int;
 
 	// column major matrix built from column vectors: (v1, v2, v3, v4)
 	struct mat4 {
-		vec4 data[4];
+		vec4 data[4] = {
+			vec4{1.0f, 0.0f, 0.0f, 0.0f},
+			vec4{0.0f, 1.0f, 0.0f, 0.0f},
+			vec4{0.0f, 0.0f, 1.0f, 0.0f},
+			vec4{0.0f, 0.0f, 0.0f, 1.0f},
+		};
 	};
 
 	struct CameraView {
