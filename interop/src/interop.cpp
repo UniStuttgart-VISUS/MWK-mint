@@ -322,37 +322,39 @@ bool interop::DataReceiver::getDataCopy() {
 // -------------------------------------------------
 // --- JSON converters for our interop data types
 // -------------------------------------------------
-#define write(name) {# name, v. ## name}
-#define read(name) j.at(# name).get_to(v. ## name);
 
 // Add json converter functions as follows: 
 //
 // void to_json(json& j, const YourOwnType& v) {
 // 	j = json{
-// 		write(member1),
+// 		writeVal(member1),
 // 		...
-// 		write(memberN)
+// 		writeVal(memberN)
 // 	};
 // }
 // void from_json(const json& j, YourOwnType& v) {
-// 	read(member1);
+// 	readVal(member1);
 // 	...
-// 	read(memberN);
+// 	readVal(memberN);
 // }
 namespace interop {
+
+#define writeVal(name) {# name, v. ## name}
+#define readVal(name) j.at(# name).get_to(v. ## name);
+#define readObj(name) from_json(j.at(# name), v.## name)
 	void to_json(json& j, const vec4& v) {
 		j = json{
-			write(x),
-			write(y),
-			write(z),
-			write(w)
+			writeVal(x),
+			writeVal(y),
+			writeVal(z),
+			writeVal(w)
 		};
 	}
 	void from_json(const json& j, vec4& v) {
-		read(x);
-		read(y);
-		read(z);
-		read(w);
+		readVal(x);
+		readVal(y);
+		readVal(z);
+		readVal(w);
 	}
 
 	// mat4 is somewhat special regarding the json format coming from Unity
@@ -364,111 +366,111 @@ namespace interop {
 			{"e30" , v.data[0].w}, {"e31" , v.data[1].w}, {"e32" , v.data[2].w}, {"e33" , v.data[3].w}
 		};
 	}
-#define rm(name,value) j.at(# name).get_to(## value);
+#define readMat(name,value) j.at(name).get_to(## value);
 	void from_json(const json& j, mat4& v) {
-		rm("e00", v.data[0].x); rm("e01", v.data[1].x); rm("e02", v.data[2].x); rm("e03", v.data[3].x);
-		rm("e10", v.data[0].y); rm("e11", v.data[1].y); rm("e12", v.data[2].y); rm("e13", v.data[3].y);
-		rm("e20", v.data[0].z); rm("e21", v.data[1].z); rm("e22", v.data[2].z); rm("e23", v.data[3].z); 
-		rm("e30", v.data[0].w); rm("e31", v.data[1].w); rm("e32", v.data[2].w); rm("e33", v.data[3].w);
+		readMat("e00", v.data[0].x); readMat("e01", v.data[1].x); readMat("e02", v.data[2].x); readMat("e03", v.data[3].x);
+		readMat("e10", v.data[0].y); readMat("e11", v.data[1].y); readMat("e12", v.data[2].y); readMat("e13", v.data[3].y);
+		readMat("e20", v.data[0].z); readMat("e21", v.data[1].z); readMat("e22", v.data[2].z); readMat("e23", v.data[3].z); 
+		readMat("e30", v.data[0].w); readMat("e31", v.data[1].w); readMat("e32", v.data[2].w); readMat("e33", v.data[3].w);
 	}
 
 	void to_json(json& j, const CameraView& v) {
 		j = json{
-			write(eyePos),
-			write(lookAtPos),
-			write(camUp)
+			writeVal(eyePos),
+			writeVal(lookAtPos),
+			writeVal(camUp)
 		};
 	}
 	void from_json(const json& j, CameraView& v) {
-		read(eyePos);
-		read(lookAtPos);
-		read(camUp);
+		readObj(eyePos);
+		readObj(lookAtPos);
+		readObj(camUp);
 	}
 
 	void to_json(json& j, const CameraProjection& v) {
 		j = json{
-			write(fieldOfViewY_deg),
-			write(nearClipPlane),
-			write(farClipPlane),
-			write(aspect),
-			write(pixelWidth),
-			write(pixelHeight)
+			writeVal(fieldOfViewY_deg),
+			writeVal(nearClipPlane),
+			writeVal(farClipPlane),
+			writeVal(aspect),
+			writeVal(pixelWidth),
+			writeVal(pixelHeight)
 		};
 	}
 	void from_json(const json& j, CameraProjection& v) {
-		read(fieldOfViewY_deg);
-		read(nearClipPlane);
-		read(farClipPlane);
-		read(aspect);
-		read(pixelWidth);
-		read(pixelHeight);
+		readVal(fieldOfViewY_deg);
+		readVal(nearClipPlane);
+		readVal(farClipPlane);
+		readVal(aspect);
+		readVal(pixelWidth);
+		readVal(pixelHeight);
 	}
 
 	void to_json(json& j, const CameraConfiguration& v) {
 		j = json{
-			write(viewParameters),
-			write(projectionParameters),
-			write(viewMatrix),
-			write(projectionMatrix)
+			writeVal(viewParameters),
+			writeVal(projectionParameters),
+			writeVal(viewMatrix),
+			writeVal(projectionMatrix)
 		};
 	}
 	void from_json(const json& j, CameraConfiguration& v) {
-		read(viewParameters);
-		read(projectionParameters);
-		read(viewMatrix);
-		read(projectionMatrix);
+		readObj(viewParameters);
+		readObj(projectionParameters);
+		readObj(viewMatrix);
+		readObj(projectionMatrix);
 	}
 
 	void to_json(json& j, const StereoCameraConfiguration& v) {
 		j = json{
-			write(stereoConvergence),
-			write(stereoSeparation),
-			write(cameraLeftEye),
-			write(cameraRightEye)
+			writeVal(stereoConvergence),
+			writeVal(stereoSeparation),
+			writeVal(cameraLeftEye),
+			writeVal(cameraRightEye)
 		};
 	}
 	void from_json(const json& j, StereoCameraConfiguration& v) {
-		read(stereoConvergence);
-		read(stereoSeparation);
-		read(cameraLeftEye);
-		read(cameraRightEye);
+		readVal(stereoConvergence);
+		readVal(stereoSeparation);
+		readObj(cameraLeftEye);
+		readObj(cameraRightEye);
 	}
 
 	void to_json(json& j, const BoundingBoxCorners& v) {
 		j = json{
-			write(min),
-			write(max)
+			writeVal(min),
+			writeVal(max)
 		};
 	}
 	void from_json(const json& j, BoundingBoxCorners& v) {
-		read(min);
-		read(max);
+		readObj(min);
+		readObj(max);
 	}
 
 	void to_json(json& j, const ModelPose& v) {
 		j = json{
-			write(translation),
-			write(scale),
-			write(rotation_quaternion),
-			write(modelMatrix)
+			writeVal(translation),
+			writeVal(scale),
+			writeVal(rotation_quaternion),
+			writeVal(modelMatrix)
 		};
 	}
 	void from_json(const json& j, ModelPose& v) {
-		read(translation);
-		read(scale);
-		read(rotation_quaternion);
-		read(modelMatrix);
+		readObj(translation);
+		readObj(scale);
+		readObj(rotation_quaternion);
+		readObj(modelMatrix);
 	}
 
 	void to_json(json& j, const DatasetRenderConfiguration& v) {
 		j = json{
-			write(stereoCamera),
-			write(modelTransform)
+			writeVal(stereoCamera),
+			writeVal(modelTransform)
 		};
 	}
 	void from_json(const json& j, DatasetRenderConfiguration& v) {
-		read(stereoCamera);
-		read(modelTransform);
+		readObj(stereoCamera);
+		readObj(modelTransform);
 	}
 }
 
