@@ -195,10 +195,18 @@ int main(void)
 
 		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
 		glm::mat4 modelPoseMat = toGlmMat(modelPose.modelMatrix);
-		const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{0.0f, 0.0f, 1.0f});
+		glm::vec4 modelTranslate = toGlmVec(modelPose.translation);
+		glm::vec4 modelScale     = toGlmVec(modelPose.scale);
+		glm::vec4 modelRotation  = toGlmVec(modelPose.rotation_axis_angle);
+		const glm::mat4 model =
+			  glm::translate(glm::vec3{modelTranslate})
+			* glm::rotate(modelRotation.w, glm::vec3{modelRotation})
+			* glm::scale(glm::vec3{modelScale});
+		//const auto model = modelPoseMat;
+		//const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{ 0.0f, 0.0f, 1.0f });
 
 		const auto view = glm::lookAt(
-			glm::vec3{0.0f, 0.0f, 1.0f}, // eye
+			glm::vec3{0.0f, 0.0f, 3.0f}, // eye
 			glm::vec3{0.0f}, // center
 			glm::vec3{0.0f, 1.0f, 0.0f}); // up
 		const auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
