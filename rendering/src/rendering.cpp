@@ -11,6 +11,17 @@
 #include <iostream>
 
 #include <interop.hpp>
+glm::vec4 toGlmVec(const interop::vec4& v) {
+	return glm::vec4{v.x, v.y, v.z, v.w};
+}
+glm::mat4 toGlmMat(const interop::mat4& m) {
+	return glm::mat4{
+		toGlmVec(m.data[0]),
+		toGlmVec(m.data[1]),
+		toGlmVec(m.data[2]),
+		toGlmVec(m.data[3])
+	};
+}
 
 static const struct
 {
@@ -160,8 +171,9 @@ int main(void)
 	interop::TextureSender ts; // has spout sender
 	ts.init("render_interop_test");
 
-	interop::DataReceiver dr;
-	dr.start("tcp://localhost:12345", "");
+	interop::DataReceiver modelPoseReceiver;
+	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
+	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -180,7 +192,10 @@ int main(void)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		const auto model = glm::rotate((float)glfwGetTime(), glm::vec3{0.0f, 0.0f, 1.0f});
+		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
+		glm::mat4 modelPoseMat = toGlmMat(modelPose.modelMatrix);
+		const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{0.0f, 0.0f, 1.0f});
+
 		const auto view = glm::lookAt(
 			glm::vec3{0.0f, 0.0f, 1.0f}, // eye
 			glm::vec3{0.0f}, // center
@@ -200,7 +215,7 @@ int main(void)
 		glfwPollEvents();
 	}
 
-	dr.stop();
+	modelPoseReceiver.stop();
 
 	fbo.destroy();
 	ts.destroy();
