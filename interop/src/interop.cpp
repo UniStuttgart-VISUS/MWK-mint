@@ -244,7 +244,7 @@ namespace {
 			socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
 			//socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message, drop old ones
 			socket.setsockopt(ZMQ_SUBSCRIBE, filter.data(), filter.size()); // only receive messages with prefix given by filterName
-			socket.setsockopt(ZMQ_RCVTIMEO, 1000 /*ms*/); // timeout after not receiving messages for 1 second
+			socket.setsockopt(ZMQ_RCVTIMEO, 100 /*ms*/); // timeout after not receiving messages for tenth of a second
 			socket.connect(networkAddress);
 		}
 		catch (std::exception& e){
