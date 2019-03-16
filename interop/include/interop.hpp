@@ -89,7 +89,7 @@ using uint = unsigned int;
 	struct CameraView {
 		vec4 eyePos;
 		vec4 lookAtPos;
-		vec4 camUp;
+		vec4 camUpDir;
 	};
 
 	struct CameraProjection {

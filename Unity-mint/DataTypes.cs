@@ -63,7 +63,7 @@ namespace interop
     {
         public vec4 eyePos;
         public vec4 lookAtPos;
-        public vec4 camUp;
+        public vec4 camUpDir;
 
         public string json() { return JsonUtility.ToJson(this); }
     };

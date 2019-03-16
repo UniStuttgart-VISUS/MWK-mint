@@ -378,13 +378,13 @@ namespace interop {
 		j = json{
 			writeVal(eyePos),
 			writeVal(lookAtPos),
-			writeVal(camUp)
+			writeVal(camUpDir)
 		};
 	}
 	void from_json(const json& j, CameraView& v) {
 		readObj(eyePos);
 		readObj(lookAtPos);
-		readObj(camUp);
+		readObj(camUpDir);
 	}
 
 	void to_json(json& j, const CameraProjection& v) {
