@@ -11,15 +11,15 @@
 #include <iostream>
 
 #include <interop.hpp>
-glm::vec4 toGlmVec(const interop::vec4& v) {
+glm::vec4 toGlm(const interop::vec4& v) {
 	return glm::vec4{v.x, v.y, v.z, v.w};
 }
-glm::mat4 toGlmMat(const interop::mat4& m) {
+glm::mat4 toGlm(const interop::mat4& m) {
 	return glm::mat4{
-		toGlmVec(m.data[0]),
-		toGlmVec(m.data[1]),
-		toGlmVec(m.data[2]),
-		toGlmVec(m.data[3])
+		toGlm(m.data[0]),
+		toGlm(m.data[1]),
+		toGlm(m.data[2]),
+		toGlm(m.data[3])
 	};
 }
 
@@ -121,7 +121,9 @@ int main(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
-	window = glfwCreateWindow(640, 480, "Triangle Rendering", NULL, NULL);
+	int initialWidth = 640;
+	int initialHeight = 480;
+	window = glfwCreateWindow(initialWidth, initialHeight, "Triangle Rendering", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -176,11 +178,13 @@ int main(void)
 	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
 	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
 
+	float ratio = initialWidth/ (float) initialHeight;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int width, height;
 		glfwGetFramebufferSize(window, &width, &height);
-		float ratio = width / (float) height;
+		ratio = width / (float) height;
 		// default framebuffer
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -194,10 +198,10 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
-		glm::mat4 modelPoseMat = toGlmMat(modelPose.modelMatrix);
-		glm::vec4 modelTranslate = toGlmVec(modelPose.translation);
-		glm::vec4 modelScale     = toGlmVec(modelPose.scale);
-		glm::vec4 modelRotation  = toGlmVec(modelPose.rotation_axis_angle);
+		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
+		glm::vec4 modelTranslate = toGlm(modelPose.translation);
+		glm::vec4 modelScale     = toGlm(modelPose.scale);
+		glm::vec4 modelRotation  = toGlm(modelPose.rotation_axis_angle);
 		const glm::mat4 model =
 			  glm::translate(glm::vec3{modelTranslate})
 			* glm::rotate(modelRotation.w, glm::vec3{modelRotation})
