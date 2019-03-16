@@ -178,7 +178,13 @@ int main(void)
 	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
 	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
 
+	interop::DataReceiver cameraConfigReceiver;
+	cameraConfigReceiver.start("tcp://localhost:12346", "CameraConfiguration");
+	auto cameraConfig = interop::CameraConfiguration();
+
+	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
 	float ratio = initialWidth/ (float) initialHeight;
+	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
 
 	while (!glfwWindowShouldClose(window))
 	{
@@ -209,11 +215,20 @@ int main(void)
 		//const auto model = modelPoseMat;
 		//const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{ 0.0f, 0.0f, 1.0f });
 
-		const auto view = glm::lookAt(
-			glm::vec3{0.0f, 0.0f, 3.0f}, // eye
-			glm::vec3{0.0f}, // center
-			glm::vec3{0.0f, 1.0f, 0.0f}); // up
-		const auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
+		cameraConfig.viewParameters.eyePos;
+		cameraConfig.viewParameters.lookAtPos;
+		cameraConfig.viewParameters.camUpDir;
+		//view = toGlm(cameraConfig.viewMatrix);
+
+		cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
+		cameraConfig.projectionParameters.aspect;
+		cameraConfig.projectionParameters.farClipPlane;
+		cameraConfig.projectionParameters.nearClipPlane;
+		cameraConfig.projectionParameters.fieldOfViewY_deg;
+		cameraConfig.projectionParameters.pixelWidth;
+		cameraConfig.projectionParameters.pixelHeight;
+		//projection = toGlm(cameraConfig.projectionMatrix);
+
 		const auto mvp = projection * view * model;
 
 		glUseProgram(program);
@@ -229,6 +244,7 @@ int main(void)
 	}
 
 	modelPoseReceiver.stop();
+	cameraConfigReceiver.stop();
 
 	fbo.destroy();
 	ts.destroy();
