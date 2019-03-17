@@ -170,14 +170,41 @@ using uint = unsigned int;
 		ModelPose modelTransform;
 	};
 
-	// renderer sends bounding box (in world space) for its geometry to unity
+	// axis-aligned bounding box of rendered data 
+	// renderer sends bounding box (in world space) of its geometry to unity
 	// bounding box is used as reference for rendering and interaction with dataset
 	struct BoundingBoxCorners {
 		vec4 min;
 		vec4 max;
+
+		// returns vector V such that 'V + x' moves vector x to centered bbox coordinates
+		vec4 getCenteringVector() const {
+			return -1.0f * (min + ((max - min) * 0.5f));
+		}
+
+		// returns transformation matrix to center bounding box (and data set) at (0,0,0)
+		// the convention between Unity and our renderer is that the data set is centered at (and can be rotated around) zero
+		mat4 getCenteringTransform() const {
+			mat4 translate; // identity
+
+			translate.data[3] = this->getCenteringVector();
+			translate.data[3].w = 1.0f;
+
+			return translate;
+		}
+
+		// Unity expects a bounding box centered at zero
+		BoundingBoxCorners getCenteredBoundingBox() const {
+			auto transform = this->getCenteringTransform();
+			transform.data[3].w = 0.0f;
+
+			return BoundingBoxCorners{
+				this->min + transform.data[3],
+				this->max + transform.data[3]};
+		}
 	};
 
-
+// converter functions to fill inteorp struct from Json string received by DataReceiver
 #define make_dataGet(DataTypeName) \
 template <> \
 bool DataReceiver::getData<DataTypeName>(DataTypeName& v);
