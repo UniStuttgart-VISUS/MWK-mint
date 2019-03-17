@@ -75,6 +75,41 @@ using uint = unsigned int;
 		float z = 0.0f;
 		float w = 0.0f;
 	};
+	vec4 operator+(vec4 const& lhs, vec4 const& rhs) {
+		return vec4{
+			lhs.x + rhs.x,
+			lhs.y + rhs.y,
+			lhs.z + rhs.z,
+			lhs.w + rhs.w,
+		};
+	}
+	vec4 operator-(vec4 const& lhs, vec4 const& rhs) {
+		return vec4{
+			lhs.x - rhs.x,
+			lhs.y - rhs.y,
+			lhs.z - rhs.z,
+			lhs.w - rhs.w,
+		};
+	}
+	vec4 operator*(vec4 const& lhs, vec4 const& rhs) {
+		return vec4{
+			lhs.x * rhs.x,
+			lhs.y * rhs.y,
+			lhs.z * rhs.z,
+			lhs.w * rhs.w,
+		};
+	}
+	vec4 operator*(vec4 const& v, const float s) {
+		return vec4{
+			v.x * s,
+			v.y * s,
+			v.z * s,
+			v.w * s,
+		};
+	}
+	vec4 operator*(const float s, const vec4 v) {
+		return v * s;
+	}
 
 	// column major matrix built from column vectors: (v1, v2, v3, v4)
 	struct mat4 {
