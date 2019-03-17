@@ -215,18 +215,19 @@ int main(void)
 		//const auto model = modelPoseMat;
 		//const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{ 0.0f, 0.0f, 1.0f });
 
-		cameraConfig.viewParameters.eyePos;
-		cameraConfig.viewParameters.lookAtPos;
-		cameraConfig.viewParameters.camUpDir;
+		cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
+
+		view = glm::lookAt(
+			glm::vec3(toGlm(cameraConfig.viewParameters.eyePos)),
+			glm::vec3(toGlm(cameraConfig.viewParameters.lookAtPos)),
+			glm::vec3(toGlm(cameraConfig.viewParameters.camUpDir)));
 		//view = toGlm(cameraConfig.viewMatrix);
 
-		cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
-		cameraConfig.projectionParameters.aspect;
-		cameraConfig.projectionParameters.farClipPlane;
-		cameraConfig.projectionParameters.nearClipPlane;
-		cameraConfig.projectionParameters.fieldOfViewY_deg;
-		cameraConfig.projectionParameters.pixelWidth;
-		cameraConfig.projectionParameters.pixelHeight;
+		projection = glm::perspective(
+			cameraConfig.projectionParameters.fieldOfViewY_rad,
+			cameraConfig.projectionParameters.aspect,
+			cameraConfig.projectionParameters.nearClipPlane,
+			cameraConfig.projectionParameters.farClipPlane);
 		//projection = toGlm(cameraConfig.projectionMatrix);
 
 		const auto mvp = projection * view * model;
@@ -241,6 +242,15 @@ int main(void)
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
+
+		const bool hasNewWindowSize =
+			(width != cameraConfig.projectionParameters.pixelWidth)
+			|| (height != cameraConfig.projectionParameters.pixelHeight);
+		if (hasNewWindowSize) {
+			width = cameraConfig.projectionParameters.pixelWidth;
+			height = cameraConfig.projectionParameters.pixelHeight;
+			glfwSetWindowSize(window, width, height);
+		}
 	}
 
 	modelPoseReceiver.stop();
