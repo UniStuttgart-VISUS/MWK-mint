@@ -25,7 +25,7 @@ namespace interop
     {
         public vec4 translation;
         public vec4 scale;
-        public vec4 rotation_axis_angle;
+        public vec4 rotation_axis_angle_rad;
 
         public mat4 modelMatrix;
 
@@ -71,7 +71,7 @@ namespace interop
     [Serializable]
     public struct CameraProjection
     {
-        public float fieldOfViewY_deg; // vertical field of view in degrees
+        public float fieldOfViewY_rad; // vertical field of view in radians 
         public float nearClipPlane; // distance of near clipping plane
         public float farClipPlane;
 

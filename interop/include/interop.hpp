@@ -93,7 +93,7 @@ using uint = unsigned int;
 	};
 
 	struct CameraProjection {
-		float fieldOfViewY_deg = 1.0f; // vertical field of view in degrees
+		float fieldOfViewY_rad = 1.0f; // vertical field of view in radians 
 		float nearClipPlane = 0.1f; // distance of near clipping plane
 		float farClipPlane = 1.0f;
 
@@ -124,7 +124,7 @@ using uint = unsigned int;
 	struct ModelPose {
 		vec4 translation;
 		vec4 scale;
-		vec4 rotation_axis_angle; // angle in radians, as expected by GLM
+		vec4 rotation_axis_angle_rad; // angle in radians, as expected by GLM
 
 		mat4 modelMatrix;
 	};

@@ -389,7 +389,7 @@ namespace interop {
 
 	void to_json(json& j, const CameraProjection& v) {
 		j = json{
-			writeVal(fieldOfViewY_deg),
+			writeVal(fieldOfViewY_rad),
 			writeVal(nearClipPlane),
 			writeVal(farClipPlane),
 			writeVal(aspect),
@@ -398,7 +398,7 @@ namespace interop {
 		};
 	}
 	void from_json(const json& j, CameraProjection& v) {
-		readVal(fieldOfViewY_deg);
+		readVal(fieldOfViewY_rad);
 		readVal(nearClipPlane);
 		readVal(farClipPlane);
 		readVal(aspect);
@@ -451,14 +451,14 @@ namespace interop {
 		j = json{
 			writeVal(translation),
 			writeVal(scale),
-			writeVal(rotation_axis_angle),
+			writeVal(rotation_axis_angle_rad),
 			writeVal(modelMatrix)
 		};
 	}
 	void from_json(const json& j, ModelPose& v) {
 		readObj(translation);
 		readObj(scale);
-		readObj(rotation_axis_angle);
+		readObj(rotation_axis_angle_rad);
 		readObj(modelMatrix);
 	}
 

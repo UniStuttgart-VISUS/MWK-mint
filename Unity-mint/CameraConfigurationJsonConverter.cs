@@ -55,7 +55,7 @@ public class CameraConfigurationJsonConverter : MonoBehaviour, IJsonStringConver
         cc.viewParameters.camUpDir = convert.toOpenGL(m_camera.transform.up);
 
         // CameraProjection 
-        cc.projectionParameters.fieldOfViewY_deg = m_camera.fieldOfView; // vertical field of view in degrees
+        cc.projectionParameters.fieldOfViewY_rad = m_camera.fieldOfView * Mathf.Deg2Rad; // vertical field of view in radians
         cc.projectionParameters.nearClipPlane = m_camera.nearClipPlane;
         cc.projectionParameters.farClipPlane = m_camera.farClipPlane;
         cc.projectionParameters.aspect = m_camera.aspect;

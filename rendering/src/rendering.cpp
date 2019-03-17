@@ -207,7 +207,7 @@ int main(void)
 		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
 		glm::vec4 modelTranslate = toGlm(modelPose.translation);
 		glm::vec4 modelScale     = toGlm(modelPose.scale);
-		glm::vec4 modelRotation  = toGlm(modelPose.rotation_axis_angle);
+		glm::vec4 modelRotation  = toGlm(modelPose.rotation_axis_angle_rad);
 		const glm::mat4 model =
 			  glm::translate(glm::vec3{modelTranslate})
 			* glm::rotate(modelRotation.w, glm::vec3{modelRotation})
