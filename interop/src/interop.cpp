@@ -499,3 +499,42 @@ make_dataGet(interop::CameraProjection)
 make_dataGet(interop::CameraView)
 make_dataGet(interop::mat4)
 make_dataGet(interop::vec4)
+
+
+// interop::vec4 arithmetic operators
+interop::vec4 interop::operator+(interop::vec4 const& lhs, interop::vec4 const& rhs) {
+	return vec4{
+		lhs.x + rhs.x,
+		lhs.y + rhs.y,
+		lhs.z + rhs.z,
+		lhs.w + rhs.w,
+	};
+}
+interop::vec4 interop::operator-(interop::vec4 const& lhs, interop::vec4 const& rhs) {
+	return vec4{
+		lhs.x - rhs.x,
+		lhs.y - rhs.y,
+		lhs.z - rhs.z,
+		lhs.w - rhs.w,
+	};
+}
+interop::vec4 interop::operator*(interop::vec4 const& lhs, interop::vec4 const& rhs) {
+	return vec4{
+		lhs.x * rhs.x,
+		lhs.y * rhs.y,
+		lhs.z * rhs.z,
+		lhs.w * rhs.w,
+	};
+}
+interop::vec4 interop::operator*(interop::vec4 const& v, const float s) {
+	return vec4{
+		v.x * s,
+		v.y * s,
+		v.z * s,
+		v.w * s,
+	};
+}
+interop::vec4 interop::operator*(const float s, const interop::vec4 v) {
+	return v * s;
+}
+
