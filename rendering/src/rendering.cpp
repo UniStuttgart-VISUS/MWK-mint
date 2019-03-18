@@ -179,7 +179,7 @@ int main(void)
 	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
 
 	interop::DataReceiver cameraConfigReceiver;
-	cameraConfigReceiver.start("tcp://localhost:12346", "CameraConfiguration");
+	cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
 	auto cameraConfig = interop::CameraConfiguration();
 
 	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
