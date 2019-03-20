@@ -4,16 +4,9 @@
 #include "SpoutSender.h"
 #include <nlohmann/json.hpp>
 
+#include <iostream>
+
 using json = nlohmann::json;
-
-int func()
-{
-	Spout sp;
-	zmq::context_t c;
-	json j;
-	return sp.GetVerticalSync();
-}
-
 
 // we need to load some GL function names by hand if we don't use a loader library
 // TODO: cross-link with GL application?
@@ -34,7 +27,7 @@ namespace {
 		glDrawBuffersEXT = (glDrawBuffersFuncPtr)fptr;
 	}
 
-	zmq::context_t g_zmqContext{1};
+	static zmq::context_t g_zmqContext{1};
 }
 
 static const void savePreviousFbo(interop::glFramebuffer* fbo)
