@@ -45,6 +45,20 @@ using uint = unsigned int;
 	};
 
 	struct DataSender {
+		DataSender();
+		~DataSender();
+
+		void start(const std::string& networkAddress, const std::string& filterName = ""); // address following zmq conventions, e.g. "tcp://localhost:1234"
+		void stop();
+
+		bool sendData(std::string const& v);
+		bool sendData(std::string const& filterName, std::string const& v);
+
+		template <typename DataType>
+		bool sendData(std::string const& filterName, DataType const& v);
+
+		std::shared_ptr<void> m_sender;
+		std::string m_filterName;
 	};
 
 	struct DataReceiver {
@@ -191,4 +205,21 @@ make_dataGet(mat4)
 make_dataGet(vec4)
 #undef make_dataGet
 
+
+#define make_sendData(DataTypeName) \
+template <> \
+bool interop::DataSender::sendData<DataTypeName>(std::string const& filterName, DataTypeName const& v);
+
+make_sendData(BoundingBoxCorners)
+make_sendData(DatasetRenderConfiguration)
+make_sendData(ModelPose)
+make_sendData(StereoCameraConfiguration)
+make_sendData(CameraConfiguration)
+make_sendData(CameraProjection)
+make_sendData(CameraView)
+make_sendData(mat4)
+make_sendData(vec4)
+#undef make_sendData
+
 }
+

@@ -217,6 +217,66 @@ void interop::TextureSender::sendTexture(glFramebuffer& fb) {
 	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
 }
 
+
+#define m_socket (static_cast<zmq::socket_t*>(m_sender.get()))
+interop::DataSender::DataSender() {
+}
+interop::DataSender::~DataSender() {
+}
+
+void interop::DataSender::start(const std::string& networkAddress, std::string const& filterName) {
+	m_filterName = filterName;
+
+	m_sender = std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::pub);
+	auto& socket = *m_socket;
+
+	//if (socket.connected())
+	//	return;
+
+	try {
+		std::string identity{"InteropLib"};
+		socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
+		socket.bind(networkAddress);
+	}
+	catch (std::exception& e){
+		std::cout << "InteropLib: binding zmq socket failed: " << e.what() << std::endl;
+		return;
+	}
+}
+void interop::DataSender::stop() {
+	if (m_socket->connected())
+		m_socket->close();
+}
+
+bool interop::DataSender::sendData(std::string const& v) {
+	return this->sendData(m_filterName, v);
+}
+bool interop::DataSender::sendData(std::string const& filterName, std::string const& v) {
+	auto& socket = *m_socket;
+
+	zmq::message_t address_msg{filterName.data(), filterName.size()};
+	zmq::message_t data_msg{v.data(), v.size()};
+	
+	//std::cout << "ZMQ Sender: " << filterName << " / " << v << std::endl;
+	bool sendingResult = false;
+	const auto print = [](bool b) -> std::string { return (b ? ("true") : ("false"));  };
+	try {
+		bool adr = socket.send(address_msg, ZMQ_SNDMORE);
+		bool msg = socket.send(data_msg);
+
+		//std::cout << "ZMQ Sender: adr=" << print(adr) << ", msg=" << print(msg) << ", " << v << std::endl;
+		sendingResult = adr && msg;
+	}
+	catch (std::exception& e){
+		std::cout << "InteropLib: ZMQ sending failed: " << e.what() << std::endl;
+	}
+	return sendingResult;
+}
+
+//template <typename DataType>
+//void interop::DataSender::sendData(std::string const& filterName, DataType const& v);
+#undef m_socket
+
 namespace {
 	void runThread_DataReceiver(interop::DataReceiver* dr, const std::string& networkAddress, const std::string& filterName) {
 		if (dr == nullptr)
@@ -492,6 +552,25 @@ make_dataGet(interop::CameraView)
 make_dataGet(interop::mat4)
 make_dataGet(interop::vec4)
 
+
+#define make_sendData(DataTypeName) \
+template <> \
+bool interop::DataSender::sendData<DataTypeName>(std::string const& filterName, DataTypeName const& v) { \
+	const json j = v; \
+	const std::string jsonString = j.dump(); \
+	return this->sendData(filterName, jsonString); \
+}
+
+make_sendData(interop::BoundingBoxCorners)
+make_sendData(interop::DatasetRenderConfiguration)
+make_sendData(interop::ModelPose)
+make_sendData(interop::StereoCameraConfiguration)
+make_sendData(interop::CameraConfiguration)
+make_sendData(interop::CameraProjection)
+make_sendData(interop::CameraView)
+make_sendData(interop::mat4)
+make_sendData(interop::vec4)
+#undef make_sendData
 
 // interop::vec4 arithmetic operators
 interop::vec4 interop::operator+(interop::vec4 const& lhs, interop::vec4 const& rhs) {
