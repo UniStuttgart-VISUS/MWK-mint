@@ -18,7 +18,7 @@ public class ZMQSender : MonoBehaviour {
     public string m_address = "tcp://localhost:12345"; // user may set address string where to connect via ZMQ
 
     private PublisherSocket m_socket; // ZMQ Socket
-    private (IJsonStringConvertible,string)[] m_convsAndNames; // all Convertible scripts attached to objects in the scene which give us json data
+    private List<(IJsonStringConvertible,string)> m_convsAndNames; // all Convertible scripts attached to objects in the scene which give us json data
 
 	void Start () {
         AsyncIO.ForceDotNet.Force();
@@ -34,9 +34,9 @@ public class ZMQSender : MonoBehaviour {
             .Where(o => o.GetComponents<IJsonStringConvertible>().Length > 0) // take only objects which have IJsonStringConvertible component
             .Select(o => // for each object, make tuple (IJsonStringConvertible[] convertibles, string objectName)
                 (o.GetComponents<IJsonStringConvertible>(), // take IJsonStringConvertible[] from all IJsonStringConvertible in the components
-                Enumerable.Repeat(o.name, o.GetComponents<IJsonStringConvertible>().Length).ToArray()) ) // list with name of object as entries
-            .Select(o => o.Item1.Zip(o.Item2, (conv, name) => (conv, name)).ToArray()) // merge the two seperate Convertible and name arrays to get one array of (IJsonStringConvertible, fatherObjectName)[]
-            .Aggregate(new (IJsonStringConvertible,string)[0], (current, item) =>  current.Concat(item).ToArray()); // merge the multiple arrays into one (IJsonStringConvertible,string)[]
+                Enumerable.Repeat(o.name, o.GetComponents<IJsonStringConvertible>().Length).ToList()) ) // list with name of object as entries
+            .Select(o => o.Item1.Zip(o.Item2, (conv, name) => (conv, name)).ToList()) // merge the two seperate Convertible and name arrays to get one array of (IJsonStringConvertible, fatherObjectName)[]
+            .Aggregate(new List<(IJsonStringConvertible,string)>(), (current, item) =>  current.Concat(item).ToList()); // merge the multiple arrays into one (IJsonStringConvertible,string)[]
         // => in the end, we collected into an array all IJsonStringConvertible scripts in the scene with the names of the objects they are attached to
 
         foreach(var j in m_convsAndNames)
@@ -45,7 +45,7 @@ public class ZMQSender : MonoBehaviour {
             string objectName = j.Item2;
             Debug.Log("ZMQSender found Convertible '"+ convName +"' in Object '" + objectName + "'");
         }
-        Debug.Log("ZMQSender has " + m_convsAndNames.Length + " convertibles");
+        Debug.Log("ZMQSender has " + m_convsAndNames.Count + " convertibles");
     }
 
 	// called once per frame, after all Updates are done
