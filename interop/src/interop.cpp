@@ -156,15 +156,13 @@ void interop::glFramebuffer::blitTexture() {
 #undef glDrawBuffersEXT
 
 
-#define m_spout (static_cast<SpoutSender*>(m_sender))
+#define m_spout (static_cast<SpoutSender*>(m_sender.get()))
 #define error { printf("there was an error"); return; }
 interop::TextureSender::TextureSender() {
-	auto spoutPtr = new SpoutSender;
-	m_sender = static_cast<void*>(spoutPtr);
+	m_sender = std::make_shared<SpoutSender>();
 }
 
 interop::TextureSender::~TextureSender() {
-	delete m_spout;
 	m_sender = nullptr;
 }
 
@@ -220,6 +218,7 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint he
 
 	m_spout->SendTexture(textureHandle, GL_TEXTURE_2D, m_width, m_height);
 }
+#undef m_spout
 
 void interop::TextureSender::sendTexture(glFramebuffer& fb) {
 	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);

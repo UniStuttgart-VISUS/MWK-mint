@@ -5,6 +5,7 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <memory>
 
 namespace interop {
 
@@ -40,7 +41,7 @@ using uint = unsigned int;
 		std::string m_name = "";
 		uint m_width = 0;
 		uint m_height = 0;
-		void* m_sender;
+		std::shared_ptr<void> m_sender;
 	};
 
 	struct DataSender {
