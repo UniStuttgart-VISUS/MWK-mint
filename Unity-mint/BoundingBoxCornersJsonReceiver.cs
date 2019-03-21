@@ -69,9 +69,14 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
         var diff = (bboxMax - bboxMin);
 
         var scaleDown = new Vector3(1.0f / diff.x, 1.0f / diff.y, 1.0f / diff.z);
-
         this.transform.localScale = scaleDown;
-        this.GetComponent<BoxCollider>().size = new Vector3(Mathf.Abs(diff.x), Mathf.Abs(diff.y), Mathf.Abs(diff.z));
+
+        var thisBoxCollider = this.GetComponent<BoxCollider>();
+        if (thisBoxCollider == null)
+            this.gameObject.AddComponent<BoxCollider>();
+
+        thisBoxCollider.enabled = true;
+        thisBoxCollider.size = new Vector3(Mathf.Abs(diff.x), Mathf.Abs(diff.y), Mathf.Abs(diff.z));
 
         // center of bbox is set to (0,0,0)
         Vector3[] bboxVertices = new Vector3[] {
