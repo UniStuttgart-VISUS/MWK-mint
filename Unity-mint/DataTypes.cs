@@ -18,6 +18,7 @@ namespace interop
         public vec4 max;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<BoundingBoxCorners>(json);  }
     }
 
     [Serializable]
@@ -30,6 +31,7 @@ namespace interop
         public mat4 modelMatrix;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<ModelPose>(json);  }
     }
 
     [Serializable]
@@ -42,6 +44,7 @@ namespace interop
         public CameraConfiguration cameraRightEye;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<StereoCameraConfiguration>(json);  }
     };
 
     [Serializable]
@@ -56,6 +59,7 @@ namespace interop
         public mat4 projectionMatrix;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<CameraConfiguration>(json);  }
     };
 
     [Serializable]
@@ -66,6 +70,7 @@ namespace interop
         public vec4 camUpDir;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<CameraView>(json);  }
     };
 
     [Serializable]
@@ -80,6 +85,7 @@ namespace interop
         public uint pixelHeight;
 
         public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<CameraProjection>(json);  }
     };
 
 }
