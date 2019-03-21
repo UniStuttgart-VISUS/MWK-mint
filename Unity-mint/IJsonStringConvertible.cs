@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-using NetMQ;
-using NetMQ.Sockets;
-
 namespace interop
 {
     // When a class implements this interface,

@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-using NetMQ;
-using NetMQ.Sockets;
-
 using interop;
 
 // Returns Camera Parameters as Json string in interop format.
