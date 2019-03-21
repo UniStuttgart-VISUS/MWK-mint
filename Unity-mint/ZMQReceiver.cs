@@ -115,6 +115,16 @@ public class ZMQReceiver : MonoBehaviour {
     }
 
 	void Update () {
+        foreach(var j in m_recvsAndNames)
+        {
+            var receiver = j.Item1;
+            string value;
+
+            if(m_receivedValues.TryGetValue(receiver.nameString(), out value))
+            {
+                receiver.setJsonString(value);
+            }
+        }
 	}
 
 	// called once per frame, after all Updates are done
