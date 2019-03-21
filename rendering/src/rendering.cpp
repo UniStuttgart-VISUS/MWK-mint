@@ -182,6 +182,13 @@ int main(void)
 	cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
 	auto cameraConfig = interop::CameraConfiguration();
 
+	interop::DataSender bboxSender;
+	bboxSender.start("tcp://127.0.0.1:12346", "BoundingBoxCorners");
+	auto bboxCorners = interop::BoundingBoxCorners{
+		-1.0f * interop::vec4{1.0f, 1.0f, 1.0f, 1.0f},
+		interop::vec4{1.0f, 1.0f, 1.0f, 1.0f}
+	};
+
 	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
 	float ratio = initialWidth/ (float) initialHeight;
 	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
@@ -202,6 +209,8 @@ int main(void)
 		fbo.bind();
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		bboxSender.sendData<interop::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
 
 		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
 		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
@@ -255,6 +264,7 @@ int main(void)
 
 	modelPoseReceiver.stop();
 	cameraConfigReceiver.stop();
+	bboxSender.stop();
 
 	fbo.destroy();
 	ts.destroy();
