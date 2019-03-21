@@ -44,6 +44,11 @@ public class CameraConfigurationJsonConverter : MonoBehaviour, IJsonStringConver
 	
     CameraConfiguration CameraConfigurationFromCamera(Camera cam)
     {
+        cam = GetComponent<Camera>();
+
+        if(cam == null)
+            printError();
+
         CameraConfiguration cc;
 
         // CameraView 

@@ -66,8 +66,11 @@ public class ZMQSender : MonoBehaviour {
 
     private void OnApplicationQuit()
     {
-        m_socket.Dispose();
-        NetMQConfig.Cleanup(false);
+        if(m_socket != null)
+        {
+            m_socket.Dispose();
+            NetMQConfig.Cleanup(false);
+        }
     }
 }
 
