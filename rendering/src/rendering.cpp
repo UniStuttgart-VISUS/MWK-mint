@@ -174,8 +174,11 @@ int main(void)
 
 	interop::glFramebuffer fbo; // has RGBA color and depth buffer
 	fbo.init();
-	interop::TextureSender ts; // has spout sender
-	ts.init("render_interop_test");
+
+	interop::TextureSender ts_left; // has spout sender
+	ts_left.init("/UnityInterop/CameraLeft");
+	interop::TextureSender ts_right;
+	ts_right.init("/UnityInterop/CameraRight");
 
 	interop::DataReceiver modelPoseReceiver;
 	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
@@ -249,7 +252,8 @@ int main(void)
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		fbo.unbind();
-		ts.sendTexture(fbo.m_glTextureRGBA8, width, height);
+		ts_left.sendTexture(fbo.m_glTextureRGBA8, width, height);
+		ts_right.sendTexture(fbo.m_glTextureRGBA8, width, height);
 		fbo.blitTexture(); // blit custom fbo to default framebuffer
 
 		glfwSwapBuffers(window);
@@ -270,7 +274,8 @@ int main(void)
 	bboxSender.stop();
 
 	fbo.destroy();
-	ts.destroy();
+	ts_left.destroy();
+	ts_right.destroy();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
