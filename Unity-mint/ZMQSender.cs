@@ -16,9 +16,16 @@ namespace interop
 public class ZMQSender : MonoBehaviour {
 
     public string m_address = "tcp://localhost:12345"; // user may set address string where to connect via ZMQ
+    public bool m_logging = true;
 
     private PublisherSocket m_socket; // ZMQ Socket
     private List<(IJsonStringConvertible,string)> m_convsAndNames; // all Convertible scripts attached to objects in the scene which give us json data
+
+    private void log(string msg)
+    {
+        if(m_logging)
+            Debug.Log("ZMQSender: " + msg);
+    }
 
 	void Start () {
         AsyncIO.ForceDotNet.Force();
@@ -43,9 +50,9 @@ public class ZMQSender : MonoBehaviour {
         {
             string convName = j.Item1.nameString();
             string objectName = j.Item2;
-            Debug.Log("ZMQSender found Convertible '"+ convName +"' in Object '" + objectName + "'");
+            log("found Convertible '"+ convName +"' in Object '" + objectName + "'");
         }
-        Debug.Log("ZMQSender has " + m_convsAndNames.Count + " convertibles");
+        log("has " + m_convsAndNames.Count + " convertibles");
     }
 
 	// called once per frame, after all Updates are done
@@ -58,7 +65,7 @@ public class ZMQSender : MonoBehaviour {
                 string name = conv.nameString();
                 string json = conv.jsonString();
 
-                Debug.Log("'" + j.Item2 + "' sends '" + name + "': " + json);
+                log("'" + j.Item2 + "' sends '" + name + "': " + json);
                 m_socket.SendMoreFrame(name).SendFrame(json);
             }
         }
