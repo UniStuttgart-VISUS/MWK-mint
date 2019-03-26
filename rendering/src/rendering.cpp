@@ -27,11 +27,14 @@ static const struct
 {
 	float x, y;
 	float r, g, b;
-} vertices[3] =
+} vertices[6] =
 {   // pos(x,y)   , col(r,g,b)
-	{ -0.6f, -0.4f, 1.f, 0.f, 0.f },
-	{  0.6f, -0.4f, 0.f, 1.f, 0.f },
-	{   0.f,  0.6f, 0.f, 0.f, 1.f }
+	{ -1.0f, -0.5f, 1.f, 0.f, 0.f },
+	{  1.0f, -0.5f, 0.f, 1.f, 0.f },
+	{  1.0f,  0.5f, 0.f, 0.f, 1.f },
+	{  1.0f,  0.5f, 0.f, 0.f, 1.f },
+	{ -1.0f,  0.5f, 0.f, 1.f, 0.f },
+	{ -1.0f, -0.5f, 1.f, 0.f, 0.f }
 };
 
 static const char* vertex_shader_source = R"(
@@ -243,7 +246,7 @@ int main(void)
 
 		glUseProgram(program);
 		glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArrays(GL_TRIANGLES, 0, 6);
 
 		fbo.unbind();
 		ts.sendTexture(fbo.m_glTextureRGBA8, width, height);
