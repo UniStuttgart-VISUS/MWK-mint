@@ -32,31 +32,43 @@ struct Vertex
 
 struct RenderVertices {
 	GLuint vertex_array = 0, vertex_buffer = 0;
+	GLuint element_array = 0;
 
 	void init(const std::vector<Vertex>& vertices) {
 		glGenVertexArrays(1, &vertex_array);
 		glBindVertexArray(vertex_array);
 		glGenBuffers(1, &vertex_buffer);
+		glGenBuffers(1, &element_array);
 		glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
 		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+		unbind();
+	}
+
+	void setElements(const std::vector<unsigned int>& elements) {
+		bind();
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * elements.size(), elements.data(), GL_STATIC_DRAW);
 		unbind();
 	}
 
 	void bind() {
 		glBindVertexArray(vertex_array);
 		glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, element_array);
 	}
 	void unbind() {
 		glBindVertexArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	}
 
 	void destroy() {
 		unbind();
 		glDeleteVertexArrays(1, &vertex_array);
 		glDeleteBuffers(1, &vertex_buffer);
+		glDeleteBuffers(1, &element_array);
 		vertex_array = 0;
 		vertex_buffer = 0;
+		element_array = 0;
 	}
 };
 
@@ -70,6 +82,23 @@ const std::vector<Vertex> quadVertices =
 		Vertex{ -1.0f, -0.5f, 0.0f, 1.f, 0.f, 0.f }
 	};
 
+const std::vector<Vertex> bboxVertices = 
+	{   // pos(x,y,z)   , col(r,g,b)
+		Vertex{ -1.0f, -1.0f, -1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{  1.0f, -1.0f, -1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{  1.0f,  1.0f, -1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{ -1.0f,  1.0f, -1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{ -1.0f, -1.0f,  1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{  1.0f, -1.0f,  1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{  1.0f,  1.0f,  1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{ -1.0f,  1.0f,  1.0f, 0.1f, 0.f, 0.8f },
+	};
+const std::vector<unsigned int> bboxElements =
+	{
+		0, 1, 2, 3, 0, // bottom
+		4, 5, 6, 7, 4, // top
+		5, 1, 2, 6, 7, 3 // connect them
+	};
 
 static const char* vertex_shader_source = R"(
 	uniform mat4 MVP;
@@ -209,6 +238,14 @@ int main(void)
 	registerVertexAttributes();
 	quad.unbind();
 
+	RenderVertices bbox;
+	bbox.init(bboxVertices);
+	bbox.bind();
+	registerVertexAttributes();
+	bbox.unbind();
+	bbox.setElements(bboxElements);
+
+
 	interop::glFramebuffer fbo; // has RGBA color and depth buffer
 	fbo.init();
 
@@ -291,6 +328,10 @@ int main(void)
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		quad.unbind();
 
+		bbox.bind();
+		glDrawElements(GL_LINE_STRIP, bboxElements.size(), GL_UNSIGNED_INT, (void*)0);
+		bbox.unbind();
+
 		fbo.unbind();
 		ts_left.sendTexture(fbo.m_glTextureRGBA8, width, height);
 		ts_right.sendTexture(fbo.m_glTextureRGBA8, width, height);
@@ -318,6 +359,7 @@ int main(void)
 	ts_right.destroy();
 
 	quad.destroy();
+	bbox.destroy();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
