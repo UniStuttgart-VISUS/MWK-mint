@@ -196,13 +196,17 @@ int main(void)
 	vpos_location = glGetAttribLocation(program, "vPos");
 	vcol_location = glGetAttribLocation(program, "vCol");
 
+	const auto registerVertexAttributes = [&]() {
+		glEnableVertexAttribArray(vpos_location);
+		glVertexAttribPointer(vpos_location, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) 0);
+		glEnableVertexAttribArray(vcol_location);
+		glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*) (sizeof(float) * 3));
+	};
+
 	RenderVertices quad;
 	quad.init(quadVertices);
 	quad.bind();
-	glEnableVertexAttribArray(vpos_location);
-	glVertexAttribPointer(vpos_location, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*) 0);
-	glEnableVertexAttribArray(vcol_location);
-	glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*) (sizeof(float) * 3));
+	registerVertexAttributes();
 	quad.unbind();
 
 	interop::glFramebuffer fbo; // has RGBA color and depth buffer
@@ -282,6 +286,7 @@ int main(void)
 
 		glUseProgram(program);
 		glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
+
 		quad.bind();
 		glDrawArrays(GL_TRIANGLES, 0, 6);
 		quad.unbind();
