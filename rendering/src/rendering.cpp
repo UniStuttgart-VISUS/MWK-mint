@@ -9,6 +9,7 @@
 #include <glm/gtx/transform.hpp> // rotate in degrees around axis
 
 #include <iostream>
+#include <vector>
 
 #include <interop.hpp>
 glm::vec4 toGlm(const interop::vec4& v) {
@@ -23,28 +24,61 @@ glm::mat4 toGlm(const interop::mat4& m) {
 	};
 }
 
-static const struct
+struct Vertex
 {
-	float x, y;
+	float x, y, z;
 	float r, g, b;
-} vertices[6] =
-{   // pos(x,y)   , col(r,g,b)
-	{ -1.0f, -0.5f, 1.f, 0.f, 0.f },
-	{  1.0f, -0.5f, 0.f, 1.f, 0.f },
-	{  1.0f,  0.5f, 0.f, 0.f, 1.f },
-	{  1.0f,  0.5f, 0.f, 0.f, 1.f },
-	{ -1.0f,  0.5f, 0.f, 1.f, 0.f },
-	{ -1.0f, -0.5f, 1.f, 0.f, 0.f }
 };
+
+struct RenderVertices {
+	GLuint vertex_array = 0, vertex_buffer = 0;
+
+	void init(const std::vector<Vertex>& vertices) {
+		glGenVertexArrays(1, &vertex_array);
+		glBindVertexArray(vertex_array);
+		glGenBuffers(1, &vertex_buffer);
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+		unbind();
+	}
+
+	void bind() {
+		glBindVertexArray(vertex_array);
+		glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+	}
+	void unbind() {
+		glBindVertexArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	}
+
+	void destroy() {
+		unbind();
+		glDeleteVertexArrays(1, &vertex_array);
+		glDeleteBuffers(1, &vertex_buffer);
+		vertex_array = 0;
+		vertex_buffer = 0;
+	}
+};
+
+const std::vector<Vertex> quadVertices = 
+	{   // pos(x,y,z)   , col(r,g,b)
+		Vertex{ -1.0f, -0.5f, 0.0f, 1.f, 0.f, 0.f },
+		Vertex{  1.0f, -0.5f, 0.0f, 0.f, 1.f, 0.f },
+		Vertex{  1.0f,  0.5f, 0.0f, 0.f, 0.f, 1.f },
+		Vertex{  1.0f,  0.5f, 0.0f, 0.f, 0.f, 1.f },
+		Vertex{ -1.0f,  0.5f, 0.0f, 0.f, 1.f, 0.f },
+		Vertex{ -1.0f, -0.5f, 0.0f, 1.f, 0.f, 0.f }
+	};
+
 
 static const char* vertex_shader_source = R"(
 	uniform mat4 MVP;
 	attribute vec3 vCol;
-	attribute vec2 vPos;
+	attribute vec3 vPos;
 	varying vec3 color;
 	void main()
 	{
-		gl_Position = MVP * vec4(vPos, 0.0, 1.0);
+		gl_Position = MVP * vec4(vPos, 1.0);
 		color = vCol;
 	}\
 )";
@@ -114,7 +148,7 @@ void APIENTRY opengl_debug_message_callback(
 int main(void)
 {
 	GLFWwindow* window;
-	GLuint vertex_array, vertex_buffer, vertex_shader, fragment_shader, program;
+	GLuint vertex_shader, fragment_shader, program;
 	GLint mvp_location, vpos_location, vcol_location;
 	glfwSetErrorCallback(glfw_error_callback);
 	if (!glfwInit())
@@ -147,12 +181,6 @@ int main(void)
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glEnable(GL_CULL_FACE);
 
-	glGenVertexArrays(1, &vertex_array);
-	glBindVertexArray(vertex_array);
-	glGenBuffers(1, &vertex_buffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
 	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
 	glCompileShader(vertex_shader);
@@ -167,10 +195,15 @@ int main(void)
 	mvp_location = glGetUniformLocation(program, "MVP");
 	vpos_location = glGetAttribLocation(program, "vPos");
 	vcol_location = glGetAttribLocation(program, "vCol");
+
+	RenderVertices quad;
+	quad.init(quadVertices);
+	quad.bind();
 	glEnableVertexAttribArray(vpos_location);
-	glVertexAttribPointer(vpos_location, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*) 0);
+	glVertexAttribPointer(vpos_location, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*) 0);
 	glEnableVertexAttribArray(vcol_location);
-	glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*) (sizeof(float) * 2));
+	glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 6, (void*) (sizeof(float) * 3));
+	quad.unbind();
 
 	interop::glFramebuffer fbo; // has RGBA color and depth buffer
 	fbo.init();
@@ -249,7 +282,9 @@ int main(void)
 
 		glUseProgram(program);
 		glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
+		quad.bind();
 		glDrawArrays(GL_TRIANGLES, 0, 6);
+		quad.unbind();
 
 		fbo.unbind();
 		ts_left.sendTexture(fbo.m_glTextureRGBA8, width, height);
@@ -276,6 +311,8 @@ int main(void)
 	fbo.destroy();
 	ts_left.destroy();
 	ts_right.destroy();
+
+	quad.destroy();
 
 	glfwDestroyWindow(window);
 	glfwTerminate();
