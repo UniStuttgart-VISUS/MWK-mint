@@ -6,7 +6,8 @@ using interop;
 
 // Returns Camera Parameters as Json string in interop format.
 // This script needs to be attached to a Camera Object.
-public class CameraConfigurationJsonConverter : MonoBehaviour, IJsonStringConvertible {
+[RequireComponent(typeof(Camera))]
+public class CameraConfigurationJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public string Name = "CameraConfiguration";
 
@@ -44,8 +45,6 @@ public class CameraConfigurationJsonConverter : MonoBehaviour, IJsonStringConver
 	
     CameraConfiguration CameraConfigurationFromCamera(Camera cam)
     {
-        cam = GetComponent<Camera>();
-
         if(cam == null)
             printError();
 

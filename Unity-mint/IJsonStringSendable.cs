@@ -8,7 +8,7 @@ namespace interop
     // we can ask it for a Json representation of some kind of data.
     // The ZMQ Sender uses this to send arbitrary data.
     // TODO: we may use byte[] instead of string, for a more general interface.
-    public interface IJsonStringConvertible {
+    public interface IJsonStringSendable {
             string nameString();
             string jsonString();
     }

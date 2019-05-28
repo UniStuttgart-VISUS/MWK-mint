@@ -5,7 +5,7 @@ using UnityEngine;
 using interop;
 
 // Returns transform of the GameObject as Json string in interop format.
-public class ModelPoseJsonConverter : MonoBehaviour, IJsonStringConvertible {
+public class ModelPoseJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public string Name = "ModelPose";
 
