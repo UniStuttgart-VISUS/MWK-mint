@@ -112,6 +112,11 @@ using uint = unsigned int;
 		vec4 camUpDir;
 	};
 
+	struct StereoCameraView {
+		CameraView leftEyeView;
+		CameraView rightEyeView;
+	};
+
 	struct CameraProjection {
 		float fieldOfViewY_rad = 1.0f; // vertical field of view in radians 
 		float nearClipPlane = 0.1f; // distance of near clipping plane
@@ -200,6 +205,7 @@ make_dataGet(ModelPose)
 make_dataGet(StereoCameraConfiguration)
 make_dataGet(CameraConfiguration)
 make_dataGet(CameraProjection)
+make_dataGet(StereoCameraView)
 make_dataGet(CameraView)
 make_dataGet(mat4)
 make_dataGet(vec4)
@@ -216,6 +222,7 @@ make_sendData(ModelPose)
 make_sendData(StereoCameraConfiguration)
 make_sendData(CameraConfiguration)
 make_sendData(CameraProjection)
+make_sendData(StereoCameraView)
 make_sendData(CameraView)
 make_sendData(mat4)
 make_sendData(vec4)

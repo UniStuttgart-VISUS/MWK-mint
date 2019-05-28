@@ -439,6 +439,17 @@ namespace interop {
 		readObj(camUpDir);
 	}
 
+	void to_json(json& j, const StereoCameraView& v) {
+		j = json{
+			writeVal(leftEyeView),
+			writeVal(rightEyeView)
+		};
+	}
+	void from_json(const json& j, StereoCameraView& v) {
+		readObj(leftEyeView);
+		readObj(rightEyeView);
+	}
+
 	void to_json(json& j, const CameraProjection& v) {
 		j = json{
 			writeVal(fieldOfViewY_rad),
@@ -542,12 +553,14 @@ bool interop::DataReceiver::getData<DataTypeName>(DataTypeName& v) { \
 	return false; \
 }
 
+// when adding to those macros, don't forget to also define 'to_json' and 'from_json' functions above for the new data type
 make_dataGet(interop::BoundingBoxCorners)
 make_dataGet(interop::DatasetRenderConfiguration)
 make_dataGet(interop::ModelPose)
 make_dataGet(interop::StereoCameraConfiguration)
 make_dataGet(interop::CameraConfiguration)
 make_dataGet(interop::CameraProjection)
+make_dataGet(interop::StereoCameraView)
 make_dataGet(interop::CameraView)
 make_dataGet(interop::mat4)
 make_dataGet(interop::vec4)
@@ -561,12 +574,14 @@ bool interop::DataSender::sendData<DataTypeName>(std::string const& filterName, 
 	return this->sendData(filterName, jsonString); \
 }
 
+// when adding to those macros, don't forget to also define 'to_json' and 'from_json' functions above for the new data type
 make_sendData(interop::BoundingBoxCorners)
 make_sendData(interop::DatasetRenderConfiguration)
 make_sendData(interop::ModelPose)
 make_sendData(interop::StereoCameraConfiguration)
 make_sendData(interop::CameraConfiguration)
 make_sendData(interop::CameraProjection)
+make_sendData(interop::StereoCameraView)
 make_sendData(interop::CameraView)
 make_sendData(interop::mat4)
 make_sendData(interop::vec4)
