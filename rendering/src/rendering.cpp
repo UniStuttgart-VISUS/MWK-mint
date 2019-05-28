@@ -246,115 +246,149 @@ int main(void)
 	bbox.setElements(bboxElements);
 
 
-	interop::glFramebuffer fbo; // has RGBA color and depth buffer
-	fbo.init();
+	interop::glFramebuffer fbo_left; // has RGBA color and depth buffer
+	fbo_left.init();
+	interop::glFramebuffer fbo_right;
+	fbo_right.init();
 
 	interop::TextureSender ts_left; // has spout sender
-	ts_left.init("/UnityInterop/CameraLeft");
+	ts_left.init("/UnityInterop/DefaultNameLeft");
 	interop::TextureSender ts_right;
-	ts_right.init("/UnityInterop/CameraRight");
+	ts_right.init("/UnityInterop/DefaultNameRight");
 
 	interop::DataReceiver modelPoseReceiver;
 	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
 	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
 
-	interop::DataReceiver cameraConfigReceiver;
-	cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
-	auto cameraConfig = interop::CameraConfiguration();
+	//interop::DataReceiver cameraPoseReceiver;
+	//cameraPoseReceiver.start("tcp://localhost:12345", "CameraPose");
+	//auto cameraPose = interop::ModelPose();
+	//
+	//interop::DataReceiver cameraConfigReceiver;
+	//cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
+	//auto cameraConfig = interop::CameraConfiguration();
+
+	interop::DataReceiver cameraProjectionReceiver;
+	cameraProjectionReceiver.start("tcp://localhost:12345", "CameraProjection");
+	auto cameraProjection = interop::CameraProjection();
+
+	interop::DataReceiver stereoCameraViewReceiver;
+	stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraView");
+	auto stereoCameraView = interop::StereoCameraView();
 
 	interop::DataSender bboxSender;
 	bboxSender.start("tcp://127.0.0.1:12346", "BoundingBoxCorners");
 	auto bboxCorners = interop::BoundingBoxCorners{
 		-1.0f * interop::vec4{1.0f, 1.0f, 1.0f, 1.0f},
-		interop::vec4{1.0f, 1.0f, 1.0f, 1.0f}
+		 1.0f * interop::vec4{1.0f, 1.0f, 1.0f, 1.0f}
 	};
 
 	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
 	float ratio = initialWidth/ (float) initialHeight;
 	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
 
+	int width = 800, height = 600;
 	while (!glfwWindowShouldClose(window))
 	{
-		int width, height;
-		glfwGetFramebufferSize(window, &width, &height);
 		ratio = width / (float) height;
 		// default framebuffer
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// render into custom framebuffer
-		if(width != fbo.m_width || height != fbo.m_height) {
-			fbo.resizeTexture(width, height);
-		}
-		fbo.bind();
-		glViewport(0, 0, width, height);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		bboxSender.sendData<interop::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
+
+		const auto getModelMatrix = [](interop::ModelPose& mp) -> glm::mat4 {
+			const glm::vec4 modelTranslate = toGlm(mp.translation);
+			const glm::vec4 modelScale     = toGlm(mp.scale);
+			const glm::vec4 modelRotation  = toGlm(mp.rotation_axis_angle_rad);
+
+			return 
+				  glm::translate(glm::vec3{modelTranslate})
+				* glm::rotate(modelRotation.w, glm::vec3{modelRotation})
+				* glm::scale(glm::vec3{modelScale});
+		};
 
 		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
 		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
-		glm::vec4 modelTranslate = toGlm(modelPose.translation);
-		glm::vec4 modelScale     = toGlm(modelPose.scale);
-		glm::vec4 modelRotation  = toGlm(modelPose.rotation_axis_angle_rad);
-		const glm::mat4 model =
-			  glm::translate(glm::vec3{modelTranslate})
-			* glm::rotate(modelRotation.w, glm::vec3{modelRotation})
-			* glm::scale(glm::vec3{modelScale});
-		//const auto model = modelPoseMat;
-		//const auto model = modelPoseMat * glm::rotate((float)glfwGetTime(), glm::vec3{ 0.0f, 0.0f, 1.0f });
+		const glm::mat4 model = getModelMatrix(modelPose);
 
-		cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
-
-		view = glm::lookAt(
-			glm::vec3(toGlm(cameraConfig.viewParameters.eyePos)),
-			glm::vec3(toGlm(cameraConfig.viewParameters.lookAtPos)),
-			glm::vec3(toGlm(cameraConfig.viewParameters.camUpDir)));
-		//view = toGlm(cameraConfig.viewMatrix);
-
+		cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection);
 		projection = glm::perspective(
-			cameraConfig.projectionParameters.fieldOfViewY_rad,
-			cameraConfig.projectionParameters.aspect,
-			cameraConfig.projectionParameters.nearClipPlane,
-			cameraConfig.projectionParameters.farClipPlane);
+			cameraProjection.fieldOfViewY_rad,
+			cameraProjection.aspect,
+			cameraProjection.nearClipPlane,
+			cameraProjection.farClipPlane);
 		//projection = toGlm(cameraConfig.projectionMatrix);
 
-		const auto mvp = projection * view * model;
+		//cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
+		//cameraPoseReceiver.getData<interop::ModelPose>(cameraPose);
+		stereoCameraViewReceiver.getData<interop::StereoCameraView>(stereoCameraView);
 
-		glUseProgram(program);
-		glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
+		//glfwGetFramebufferSize(window, &width, &height);
+		const bool hasNewWindowSize =
+			(width != cameraProjection.pixelWidth)
+			|| (height != cameraProjection.pixelHeight);
+		if (hasNewWindowSize) {
+			width = cameraProjection.pixelWidth;
+			height = cameraProjection.pixelHeight;
+			glfwSetWindowSize(window, width, height);
+		}
 
-		quad.bind();
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-		quad.unbind();
+		const auto renderFromEye = [&](interop::CameraView& camView, interop::glFramebuffer& fbo, interop::TextureSender& ts)
+		{
+			if(width != fbo.m_width || height != fbo.m_height) {
+				fbo.resizeTexture(width, height);
+			}
 
-		bbox.bind();
-		glDrawElements(GL_LINE_STRIP, bboxElements.size(), GL_UNSIGNED_INT, (void*)0);
-		bbox.unbind();
+			// render into custom framebuffer
+			fbo.bind();
+			glViewport(0, 0, width, height);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		fbo.unbind();
-		ts_left.sendTexture(fbo.m_glTextureRGBA8, width, height);
-		ts_right.sendTexture(fbo.m_glTextureRGBA8, width, height);
-		fbo.blitTexture(); // blit custom fbo to default framebuffer
+			//const auto cameraModel = getModelMatrix(cameraPose);
+			view = glm::lookAt(
+				glm::vec3(toGlm(camView.eyePos)),
+				glm::vec3(toGlm(camView.lookAtPos)),
+				glm::vec3(toGlm(camView.camUpDir)));
+				//glm::vec3(toGlm(cameraPose.modelMatrix) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)),
+				//glm::vec3(toGlm(cameraPose.modelMatrix) * glm::vec4(0.0f, 0.0f,-1.0f, 1.0f)),
+				//glm::vec3(glm::transpose(glm::inverse(toGlm(cameraPose.modelMatrix))) * glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)) );
+			//view = toGlm(cameraConfig.viewMatrix);
+
+			const auto mvp = projection * view * model;
+
+			glUseProgram(program);
+			glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
+
+			quad.bind();
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			quad.unbind();
+
+			bbox.bind();
+			glDrawElements(GL_LINE_STRIP, bboxElements.size(), GL_UNSIGNED_INT, (void*)0);
+			bbox.unbind();
+
+			fbo.unbind();
+			ts.sendTexture(fbo.m_glTextureRGBA8, width, height);
+			fbo.blitTexture(); // blit custom fbo to default framebuffer
+		};
+
+		renderFromEye(stereoCameraView.leftEyeView, fbo_left, ts_left);
+		renderFromEye(stereoCameraView.rightEyeView, fbo_right, ts_right);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
-
-		const bool hasNewWindowSize =
-			(width != cameraConfig.projectionParameters.pixelWidth)
-			|| (height != cameraConfig.projectionParameters.pixelHeight);
-		if (hasNewWindowSize) {
-			width = cameraConfig.projectionParameters.pixelWidth;
-			height = cameraConfig.projectionParameters.pixelHeight;
-			glfwSetWindowSize(window, width, height);
-		}
 	}
 
 	modelPoseReceiver.stop();
-	cameraConfigReceiver.stop();
+	cameraProjectionReceiver.stop();
+	//cameraConfigReceiver.stop();
+	//cameraPoseReceiver.stop();
+	stereoCameraViewReceiver.stop();
 	bboxSender.stop();
 
-	fbo.destroy();
+	fbo_left.destroy();
+	fbo_right.destroy();
 	ts_left.destroy();
 	ts_right.destroy();
 
