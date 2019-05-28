@@ -16,6 +16,13 @@ namespace interop
 public class ZMQReceiver : MonoBehaviour {
 
     public string m_address = "tcp://localhost:12346"; // user may set address string where to connect via ZMQ
+    public bool m_logging = false;
+
+    private void log(string msg)
+    {
+        if(m_logging)
+            Debug.Log("ZMQReceiver: " + msg);
+    }
 
     private SubscriberSocket m_socket = null; // ZMQ Socket
 
@@ -50,9 +57,10 @@ public class ZMQReceiver : MonoBehaviour {
     {
         Debug.Log("ZMQReceiver starting async worker");
 
-        AsyncIO.ForceDotNet.Force();
+        // need to create ZMQ socket in thread that is going to use it
         if(m_socket == null)
         {
+            AsyncIO.ForceDotNet.Force();
             m_socket = new SubscriberSocket();
             m_socket.Options.SendHighWatermark = 1000;
             m_socket.Connect(m_address);
@@ -70,7 +78,7 @@ public class ZMQReceiver : MonoBehaviour {
 
             if (multipartMessage.IsEmpty)
             {
-                Debug.Log("ZMQReceiver: failed to receive message");
+                log("ZMQReceiver: failed to receive message");
                 continue;
             }
 
@@ -78,12 +86,13 @@ public class ZMQReceiver : MonoBehaviour {
             string message = multipartMessage[1].ConvertToString();
 
             m_receivedValues.AddOrUpdate(address, message, (key, oldValue) => message);
-            Debug.Log("ZMQReceiver: " + address + " / " + message);
+            log("ZMQReceiver: " + address + " / " + message);
         }
 
         m_socket.Dispose();
         NetMQConfig.Cleanup(false);
         e.Cancel = true;
+        m_socket = null;
     }
 
     public string getValue(string name)
@@ -114,6 +123,7 @@ public class ZMQReceiver : MonoBehaviour {
         }
     }
 
+	//void PreUpdate () { // since Unity 2019.1.1
 	void Update () {
         foreach(var j in m_recvsAndNames)
         {
@@ -125,10 +135,6 @@ public class ZMQReceiver : MonoBehaviour {
                 receiver.setJsonString(value);
             }
         }
-	}
-
-	// called once per frame, after all Updates are done
-	void LateUpdate () {
 	}
 
     private void OnApplicationQuit()
