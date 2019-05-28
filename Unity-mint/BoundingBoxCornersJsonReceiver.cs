@@ -11,6 +11,7 @@ using interop;
 public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivable {
 
     public string Name = "BoundingBoxCorners";
+    public bool renderBbox = true;
 
     private string m_inJsonString = null;
 
@@ -42,21 +43,22 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
 
     void Update()
     {
-        if (m_inJsonString != null && m_isBboxSet != true)
+        if (m_inJsonString != null && !m_isBboxSet)
         {
             m_bbox = BoundingBoxCornersFromString();
             setBboxRendering(m_bbox);
+            m_isBboxSet = true;
         }
 
-        if(m_bboxMesh)
+        if(m_bboxMesh && renderBbox)
         {
             Graphics.DrawMesh(m_bboxMesh, this.transform.localToWorldMatrix, m_bboxMaterial, 0);
         }
     }
     private void setBboxRendering(BoundingBoxCorners bbox)
     {
-        var bboxMin = new Vector3(bbox.min.x, bbox.min.y, bbox.min.z);
-        var bboxMax = new Vector3(bbox.max.x, bbox.max.y, bbox.max.z);
+        var bboxMin = convert.toUnity(new Vector3(bbox.min.x, bbox.min.y, bbox.min.z));
+        var bboxMax = convert.toUnity(new Vector3(bbox.max.x, bbox.max.y, bbox.max.z));
 
         float minX = bboxMin.x;
         float minY = bboxMin.y;
@@ -68,15 +70,8 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
         var bboxCenter = bboxMin + (bboxMax - bboxMin)*0.5f;
         var diff = (bboxMax - bboxMin);
 
-        var scaleDown = new Vector3(1.0f / diff.x, 1.0f / diff.y, 1.0f / diff.z);
-        this.transform.localScale = scaleDown;
-
-        var thisBoxCollider = this.GetComponent<BoxCollider>();
-        if (thisBoxCollider == null)
-            this.gameObject.AddComponent<BoxCollider>();
-
-        thisBoxCollider.enabled = true;
-        thisBoxCollider.size = new Vector3(Mathf.Abs(diff.x), Mathf.Abs(diff.y), Mathf.Abs(diff.z));
+        var scaleDownTo1 = Vector3.Scale(this.transform.localScale, new Vector3(1.0f / diff.x, 1.0f / diff.y, 1.0f / diff.z));
+        this.transform.localScale = scaleDownTo1;
 
         // center of bbox is set to (0,0,0)
         Vector3[] bboxVertices = new Vector3[] {
@@ -107,14 +102,30 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
             5, 7,
             6, 7
         };
-
+        // set up bbox wire rendering
         m_bboxMesh = new Mesh();
         m_bboxMesh.vertices = bboxVertices;
         m_bboxMesh.SetIndices(indices, MeshTopology.Lines, 0);
-
         m_bboxMaterial = new Material(Shader.Find("Unlit/Color"));
         m_bboxMaterial.color = new Color(0.8f, 0.8f, 0.0f); // rgb
 
-        m_isBboxSet = true;
+        // resize cube mesh to size of dataset bounding box
+        var thisCubeMesh = this.GetComponent<MeshFilter>();
+        List<Vector3> cubeVertices = new List<Vector3>();
+        List<Vector3> newCubeVertices = new List<Vector3>();
+        thisCubeMesh.mesh.GetVertices(cubeVertices);
+        foreach(var v in cubeVertices)
+            newCubeVertices.Add(Vector3.Scale(v, diff));
+        thisCubeMesh.mesh.SetVertices(newCubeVertices);
+
+        // set up box collider for controller interaction and so on
+        var thisBoxCollider = this.GetComponent<BoxCollider>();
+        if (thisBoxCollider == null)
+        {
+            this.gameObject.AddComponent<BoxCollider>();
+            thisBoxCollider = this.GetComponent<BoxCollider>();
+        }
+        thisBoxCollider.enabled = true;
+        thisBoxCollider.size = diff;
     }
 }
