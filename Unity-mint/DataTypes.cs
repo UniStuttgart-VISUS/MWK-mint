@@ -63,6 +63,16 @@ namespace interop
     };
 
     [Serializable]
+    public struct StereoCameraView
+    {
+        public CameraView leftEyeView;
+        public CameraView rightEyeView;
+
+        public string json() { return JsonUtility.ToJson(this); }
+        public void fromJson(string json) { this = JsonUtility.FromJson<StereoCameraView>(json);  }
+    }
+
+    [Serializable]
     public struct CameraView
     {
         public vec4 eyePos;
