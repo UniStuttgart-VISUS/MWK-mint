@@ -234,8 +234,8 @@ void interop::DataSender::start(const std::string& networkAddress, std::string c
 	//	return;
 
 	try {
-		std::string identity{"InteropLib"};
-		socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
+		//std::string identity{"InteropLib"};
+		//socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
 		socket.bind(networkAddress);
 	}
 	catch (std::exception& e){
@@ -292,8 +292,8 @@ namespace {
 		zmq::socket_t socket{g_zmqContext, ZMQ_SUB};
 
 		try {
-			std::string identity{"InteropLib"};
-			socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
+			//std::string identity{"InteropLib"};
+			//socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
 			//socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message, drop old ones
 			socket.setsockopt(ZMQ_SUBSCRIBE, filter.data(), filter.size()); // only receive messages with prefix given by filterName
 			socket.setsockopt(ZMQ_RCVTIMEO, 100 /*ms*/); // timeout after not receiving messages for tenth of a second
@@ -305,32 +305,41 @@ namespace {
 		}
 		threadRunning.store(true);
 
+		zmq::message_t address_msg;
+		zmq::message_t content_msg;
+
 		while (threadRunning) {
 
-			zmq::message_t address_msg;
-			zmq::message_t content_msg;
+			int more = 0;
+			int filterEmpty = filter.empty();
 
-			if (!filter.empty())
-				socket.recv(&address_msg);
-			socket.recv(&content_msg);
-
-			if ((filter.size() && !address_msg.size())
-				|| (filter.size() && filter.compare(0, address_msg.size(), static_cast<const char*>(address_msg.data()), address_msg.size()) != 0))
+			if (!filterEmpty)
 			{
-				//std::cout << "filter: \"" << filter << "\"" << std::endl;
-				//std::cout << "recevd: \"" << std::string{static_cast<const char*>(address_msg.data()), address_msg.size()}  << "\"" << std::endl;
+				if (!socket.recv(&address_msg))
+					continue;
+				else
+					more = socket.getsockopt<int>(ZMQ_RCVMORE);
+			}
+
+			if (filterEmpty || more)
+			{
+				if (!socket.recv(&content_msg))
+					continue;
+			}
+			else
 				continue;
+
+			const bool log = false;
+			if (log)
+			{
+				std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
+				std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
 			}
 
 			// store message content for user to retrieve+parse
-			if(content_msg.size() > 0) {
-				//std::cout << "zmq received address: " << std::string(static_cast<char*>(address_msg.data()), address_msg.size()) << std::endl;
-				//std::cout << "zmq received content: " << std::string(static_cast<char*>(content_msg.data()), content_msg.size()) << std::endl;
-
-				std::lock_guard<std::mutex> lock{mutex};
-				msgData.assign(static_cast<char*>(content_msg.data()), content_msg.size());
-				newDataFlag.clear(std::memory_order_release); // Sets false. All writes in the current thread are visible in other threads that acquire the same atomic variable
-			}
+			std::lock_guard<std::mutex> lock{mutex};
+			msgData.assign(static_cast<char*>(content_msg.data()), content_msg.size());
+			newDataFlag.clear(std::memory_order_release); // Sets false. All writes in the current thread are visible in other threads that acquire the same atomic variable
 		}
 
 		socket.close();
