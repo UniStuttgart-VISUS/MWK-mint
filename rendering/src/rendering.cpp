@@ -211,7 +211,7 @@ int main(void)
 	glDepthFunc(GL_LESS);
 	glClearDepth(1.0f);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glEnable(GL_CULL_FACE);
+	glDisable(GL_CULL_FACE);
 
 	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
