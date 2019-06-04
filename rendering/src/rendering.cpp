@@ -72,26 +72,29 @@ struct RenderVertices {
 	}
 };
 
+const glm::vec3 offset{1.0f, 0.7f, 0.3f};
+const auto& o = offset;
+
 const std::vector<Vertex> quadVertices = 
 	{   // pos(x,y,z)   , col(r,g,b)
-		Vertex{ -1.0f, -0.5f, 0.0f, 1.f, 0.f, 0.f },
-		Vertex{  1.0f, -0.5f, 0.0f, 0.f, 1.f, 0.f },
-		Vertex{  1.0f,  0.5f, 0.0f, 0.f, 0.f, 1.f },
-		Vertex{  1.0f,  0.5f, 0.0f, 0.f, 0.f, 1.f },
-		Vertex{ -1.0f,  0.5f, 0.0f, 0.f, 1.f, 0.f },
-		Vertex{ -1.0f, -0.5f, 0.0f, 1.f, 0.f, 0.f }
+		Vertex{o.x+ -1.0f,o.y+ -0.5f,o.z+ 0.0f, 1.f, 0.f, 0.f },
+		Vertex{o.x+  1.0f,o.y+ -0.5f,o.z+ 0.0f, 0.f, 1.f, 0.f },
+		Vertex{o.x+  1.0f,o.y+  0.5f,o.z+ 0.0f, 0.f, 0.f, 1.f },
+		Vertex{o.x+  1.0f,o.y+  0.5f,o.z+ 0.0f, 0.f, 0.f, 1.f },
+		Vertex{o.x+ -1.0f,o.y+  0.5f,o.z+ 0.0f, 0.f, 1.f, 0.f },
+		Vertex{o.x+ -1.0f,o.y+ -0.5f,o.z+ 0.0f, 1.f, 0.f, 0.f }
 	};
 
 const std::vector<Vertex> bboxVertices = 
 	{   // pos(x,y,z)   , col(r,g,b)
-		Vertex{ -1.0f, -1.0f, -1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{  1.0f, -1.0f, -1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{  1.0f,  1.0f, -1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{ -1.0f,  1.0f, -1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{ -1.0f, -1.0f,  1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{  1.0f, -1.0f,  1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{  1.0f,  1.0f,  1.0f, 0.1f, 0.f, 0.8f },
-		Vertex{ -1.0f,  1.0f,  1.0f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+ -1.0f,o.y+ -0.7f,o.z+ -0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+  1.0f,o.y+ -0.7f,o.z+ -0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+  1.0f,o.y+  0.7f,o.z+ -0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+ -1.0f,o.y+  0.7f,o.z+ -0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+ -1.0f,o.y+ -0.7f,o.z+  0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+  1.0f,o.y+ -0.7f,o.z+  0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+  1.0f,o.y+  0.7f,o.z+  0.3f, 0.1f, 0.f, 0.8f },
+		Vertex{o.x+ -1.0f,o.y+  0.7f,o.z+  0.3f, 0.1f, 0.f, 0.8f },
 	};
 const std::vector<unsigned int> bboxElements =
 	{
@@ -279,9 +282,13 @@ int main(void)
 	interop::DataSender bboxSender;
 	bboxSender.start("tcp://127.0.0.1:12346", "BoundingBoxCorners");
 	auto bboxCorners = interop::BoundingBoxCorners{
-		-1.0f * interop::vec4{1.0f, 1.0f, 1.0f, 1.0f},
-		 1.0f * interop::vec4{1.0f, 1.0f, 1.0f, 1.0f}
+		interop::vec4{0.0f, 0.0f, 0.0f , 1.0f},
+		interop::vec4{2.0f*offset.x, 2.0f*offset.y, 2.0f*offset.z, 1.0f}
 	};
+
+	interop::DataReceiver bboxCorrectionReceiver;
+	bboxCorrectionReceiver.start("tcp://localhost:12345", "BBoxCorrection");
+	auto bboxCorrectionPose = interop::ModelPose(); // identity matrix or received from unity
 
 	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
 	float ratio = initialWidth/ (float) initialHeight;
@@ -311,6 +318,9 @@ int main(void)
 		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
 		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
 		const glm::mat4 model = getModelMatrix(modelPose);
+
+		bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose);
+		glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
 
 		cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection);
 		projection = glm::perspective(
@@ -355,7 +365,7 @@ int main(void)
 				//glm::vec3(glm::transpose(glm::inverse(toGlm(cameraPose.modelMatrix))) * glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)) );
 			//view = toGlm(cameraConfig.viewMatrix);
 
-			const auto mvp = projection * view * model;
+			const auto mvp = projection * view * model * bboxCorrection;
 
 			glUseProgram(program);
 			glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
@@ -386,6 +396,7 @@ int main(void)
 	//cameraPoseReceiver.stop();
 	stereoCameraViewReceiver.stop();
 	bboxSender.stop();
+	bboxCorrectionReceiver.stop();
 
 	fbo_left.destroy();
 	fbo_right.destroy();
