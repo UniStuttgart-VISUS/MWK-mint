@@ -73,7 +73,7 @@ public class ZMQSender : MonoBehaviour {
         }
 	}
 
-    private void OnApplicationQuit()
+    private void OnDisable()
     {
         if(m_socket != null)
         {

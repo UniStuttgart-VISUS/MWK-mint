@@ -62,7 +62,6 @@ public class ZMQReceiver : MonoBehaviour {
         {
             AsyncIO.ForceDotNet.Force();
             m_socket = new SubscriberSocket();
-            m_socket.Options.SendHighWatermark = 1000;
             m_socket.Connect(m_address);
 
             foreach(var i in m_recvsAndNames)
@@ -93,6 +92,7 @@ public class ZMQReceiver : MonoBehaviour {
         NetMQConfig.Cleanup(false);
         e.Cancel = true;
         m_socket = null;
+        Debug.Log("ZMQReceiver: async thread finished");
     }
 
     public string getValue(string name)
@@ -137,9 +137,11 @@ public class ZMQReceiver : MonoBehaviour {
         }
 	}
 
-    private void OnApplicationQuit()
+    private void OnDisable()
     {
         stop();
+        System.Threading.Thread.Sleep(1000);
+        Debug.Log("ZMQReceiver: stopped");
     }
 }
 
