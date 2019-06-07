@@ -12,18 +12,19 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
     public string Name = "StereoCameraView";
 
     public bool CameraPositionRelative = false;
-    public GameObject PositionRelativeTo = null;
-    public string relativeModeNameSuffix = "Relative";
+    public GameObject VrCameraPose = null;
 
     private GameObject relativeCameraPositionL = null;
     private GameObject relativeCameraPositionR = null;
+    private GameObject PositionRelativeTo = null;
+
+    private GameObject vrEyePositionL = null;
+    private GameObject vrEyePositionR = null;
 
     public void Start()
     {
         if(CameraPositionRelative)
         {
-            Name = Name + relativeModeNameSuffix;
-
             if(PositionRelativeTo == null)
                 PositionRelativeTo = this.gameObject;
 
@@ -31,9 +32,26 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
             {
                 relativeCameraPositionL = new GameObject("relativeStereoCameraPositionL");
                 relativeCameraPositionR = new GameObject("relativeStereoCameraPositionR");
-
                 relativeCameraPositionL.transform.SetParent(PositionRelativeTo.transform);
                 relativeCameraPositionR.transform.SetParent(PositionRelativeTo.transform);
+            }
+
+            if(VrCameraPose == null) {
+                Debug.LogError("StereoCameraViewJsonSender: for relative Camera positioning, provide a VR Camera (Vr Camera Pose)");
+            }
+            else {
+                var camParent = VrCameraPose.transform.parent;
+                if(camParent == null)
+                    camParent = VrCameraPose.transform;
+
+                // we want to track the global position of the left/right eye XR nodes, as the API gives us only the local coords.
+                // we can not directly append the VR eye nodes to the camera for global position tracking,
+                // as the camera itself also gets transformed as an XR node.
+                // instead, attach the eyes to parent of the camera. this way, we should get the global pose of eye XR nodes.
+                vrEyePositionL = new GameObject("vrEyePositionL");
+                vrEyePositionR = new GameObject("vrEyePositionR");
+                vrEyePositionL.transform.SetParent(camParent);
+                vrEyePositionR.transform.SetParent(camParent);
             }
         }
     }
@@ -64,6 +82,22 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
 
         if(CameraPositionRelative)
         {
+            if(VrCameraPose)
+            {
+                // InputTracking only gives us 'local coordinates' relative to parent object
+                // get global position and orientation of left/right eye XR nodes
+                vrEyePositionL.transform.localPosition = eyePosL;
+                vrEyePositionL.transform.localRotation = eyeRotL;
+                vrEyePositionR.transform.localPosition = eyePosR;
+                vrEyePositionR.transform.localRotation = eyeRotR;
+
+                // get global pose of node
+                eyePosL = vrEyePositionL.transform.position;
+                eyePosR = vrEyePositionR.transform.position;
+                eyeRotL = vrEyePositionL.transform.rotation;
+                eyeRotR = vrEyePositionR.transform.rotation;
+            }
+
             computeRelativePose(relativeCameraPositionL.transform, ref eyePosL, ref eyeRotL);
             computeRelativePose(relativeCameraPositionR.transform, ref eyePosR, ref eyeRotR);
         }
@@ -76,10 +110,11 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
 
     private void computeRelativePose(Transform relativeTransform, ref Vector3 eyePos, ref Quaternion eyeRot)
     {
-            relativeTransform.SetPositionAndRotation(eyePos, eyeRot);
+        // enter global pose into relative dataset transform, retrieve local pose (pose relative to object)
+        relativeTransform.SetPositionAndRotation(eyePos, eyeRot);
 
-            eyePos = relativeTransform.localPosition;
-            eyeRot = relativeTransform.localRotation;
+        eyePos = relativeTransform.localPosition;
+        eyeRot = relativeTransform.localRotation;
     }
 
     private void setEyeView(out CameraView view, Vector3 eyePos, Quaternion eyeRot)
