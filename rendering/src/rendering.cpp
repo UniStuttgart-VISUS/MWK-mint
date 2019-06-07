@@ -276,7 +276,8 @@ int main(void)
 	auto cameraProjection = interop::CameraProjection();
 
 	interop::DataReceiver stereoCameraViewReceiver;
-	stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraView");
+	stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraViewRelative");
+	//stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraView");
 	auto stereoCameraView = interop::StereoCameraView();
 
 	interop::DataSender bboxSender;
@@ -365,7 +366,7 @@ int main(void)
 				//glm::vec3(glm::transpose(glm::inverse(toGlm(cameraPose.modelMatrix))) * glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)) );
 			//view = toGlm(cameraConfig.viewMatrix);
 
-			const auto mvp = projection * view * model * bboxCorrection;
+			const auto mvp = projection * view;// *model * bboxCorrection;
 
 			glUseProgram(program);
 			glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
