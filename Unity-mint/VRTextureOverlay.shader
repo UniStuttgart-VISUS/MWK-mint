@@ -14,7 +14,8 @@
  
       Pass {
          Blend SrcAlpha OneMinusSrcAlpha // use alpha blending
-         ZTest Always // deactivate depth test
+         Cull Off // no backface culling of dataset box => we can look also into dataset
+         //ZTest Always // deactivate depth test
  
         //Stencil{
         //    Ref [_StencilRef]
