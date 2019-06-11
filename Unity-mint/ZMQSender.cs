@@ -22,6 +22,19 @@ public class ZMQSender : MonoBehaviour {
     private PublisherSocket m_socket = null; // ZMQ Socket
     private List<(IJsonStringSendable,string)> m_sendsAndNames; // all sendable scripts attached to objects in the scene which give us json data
 
+    private class SendPackage
+    {
+        public string objectName;
+        public string[] sendFrames;
+
+        public SendPackage(string objName, string[] frames)
+        {
+            objectName = objName;
+            sendFrames = frames;
+        }
+    }
+    private List<SendPackage> m_sendsPackages = new List<SendPackage>();
+
     private void log(string msg)
     {
         if(m_logging)
@@ -66,12 +79,39 @@ public class ZMQSender : MonoBehaviour {
                 string name = send.nameString();
                 string json = send.jsonString();
 
-                log("'" + j.Item2 + "' sends '" + name + "': " + json);
-                m_socket.SendFrame(name, true);
-                m_socket.SendFrame(json, false);
+                this.send(j.Item2, new string[]{ name, json });
             }
         }
+
+        foreach(var sp in m_sendsPackages)
+        {
+            this.send(sp.objectName, sp.sendFrames);
+        }
+        m_sendsPackages.Clear();
 	}
+
+    private void send(string senderName, string[] messageFrames)
+    {
+        log("'" + senderName + "' sends: " + string.Join("; ", messageFrames));
+
+        int elementsCount = messageFrames.Count();
+        foreach(var frame in messageFrames)
+        {
+            elementsCount--;
+            bool hasMore = elementsCount > 0;
+            m_socket.SendFrame(frame, hasMore);
+        }
+    }
+
+    public void sendMessage(string senderName, string[] messageFrames)
+    {
+        m_sendsPackages.Add(new SendPackage(senderName, messageFrames));
+    }
+
+    public void sendMessage(string senderName, string address, string message)
+    {
+        sendMessage(senderName, new string[] { address, message });
+    }
 
     private void OnDisable()
     {

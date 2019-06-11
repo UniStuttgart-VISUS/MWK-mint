@@ -29,6 +29,22 @@ public class ZMQReceiver : MonoBehaviour {
     private ConcurrentDictionary<string, string> m_receivedValues = new ConcurrentDictionary<string, string>(); // address name -> received value
     private List<(IJsonStringReceivable,string)> m_recvsAndNames = new List<(IJsonStringReceivable,string)>(); // all Convertible scripts attached to objects in the scene which give us json data
 
+    private class ReceivePacket
+    {
+        public string objectName;
+        public string subscriptionName;
+        public Action<string> messageCallback;
+        
+        public ReceivePacket(string objName, string subscription, Action<string> callback)
+        {
+            objectName = objName;
+            subscriptionName = subscription;
+            messageCallback = callback;
+        }
+    }
+    private List<ReceivePacket> m_receivePackets = new List<ReceivePacket>();
+    private ConcurrentQueue<ReceivePacket> m_pendingReceivePackets = new ConcurrentQueue<ReceivePacket>();
+
     private static BackgroundWorker m_workerThread = new BackgroundWorker();
 
 	void Start () {
@@ -72,6 +88,26 @@ public class ZMQReceiver : MonoBehaviour {
         const int messagePartsCount = 2;
         while(!m_workerThread.CancellationPending)
         {
+            while(m_pendingReceivePackets.Count > 0)
+            {
+                ReceivePacket recv = null;
+                if(m_pendingReceivePackets.TryDequeue(out recv))
+                {
+                    if (recv == null)
+                        continue;
+
+                    if(recv.messageCallback == null)
+                    {
+                        Debug.LogError("ZMQReceiver: Object '" + recv.objectName + "' registered null Action<> callback. Ignoring this subscription.");
+                        continue;
+                    }
+
+                    //recv.objectName;
+                    m_socket.Subscribe(recv.subscriptionName);
+                    m_receivePackets.Add(recv);
+                }
+            }
+
             NetMQMessage multipartMessage = new NetMQMessage(messagePartsCount);
             var hasMessage = m_socket.TryReceiveMultipartMessage(TimeSpan.FromMilliseconds(100), ref multipartMessage, messagePartsCount);
 
@@ -128,14 +164,33 @@ public class ZMQReceiver : MonoBehaviour {
         foreach(var j in m_recvsAndNames)
         {
             var receiver = j.Item1;
-            string value;
+            string value = null;
 
             if(m_receivedValues.TryGetValue(receiver.nameString(), out value))
             {
                 receiver.setJsonString(value);
             }
         }
+        foreach(var rp in m_receivePackets)
+        {
+            string value = null;
+
+            if(m_receivedValues.TryGetValue(rp.subscriptionName, out value))
+            {
+                rp.messageCallback(value);
+            }
+        }
 	}
+
+    public void addReceiver(string objName, string subscription, Action<string> callback)
+    {
+        m_pendingReceivePackets.Enqueue(new ReceivePacket(objName, subscription, callback));
+    }
+
+    public void addReceiver(string objName, IJsonStringReceivable recv)
+    {
+        this.addReceiver(objName, recv.nameString(), new Action<string>(recv.setJsonString));
+    }
 
     private void OnDisable()
     {
