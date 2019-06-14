@@ -179,6 +179,10 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
             newCubeVertices.Add(newVertex);
         }
         thisCubeMesh.mesh.SetVertices(newCubeVertices);
+        // recalc to correctly set object pivot to bbox center
+        thisCubeMesh.mesh.RecalculateBounds();
+        thisCubeMesh.mesh.RecalculateNormals();
+        thisCubeMesh.mesh.RecalculateTangents();
 
         // set up box collider for controller interaction and so on
         var thisBoxCollider = this.GetComponent<BoxCollider>();
