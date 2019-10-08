@@ -1,9 +1,12 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.XR;
 
 using interop;
+using UnityEngine.UIElements;
+using Valve.VR;
 
 // collects camera pose for left and right eye and makes them available as StereoCameraView in Json format
 // optionally computes the relative pose of camera to some dataset object (if the renderer producing images does not support model matrices)
@@ -13,6 +16,11 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public bool CameraPositionRelative = false;
     public GameObject VrCameraPose = null;
+    public float predictionValue = 0.0f;
+    public GameObject offsetSource;
+    public bool usePrediction = false;
+    public bool useSmoothing = false;
+    public float rotSmooth = 1.0f;
 
     private GameObject relativeCameraPositionL = null;
     private GameObject relativeCameraPositionR = null;
@@ -20,6 +28,8 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
 
     private GameObject vrEyePositionL = null;
     private GameObject vrEyePositionR = null;
+    
+    private TrackedDevicePose_t[] _poses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
 
     public void Start()
     {
@@ -60,8 +70,17 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
         return this.Name;
 	}
 
-	public string jsonString() {
-        StereoCameraView cc = StereoCameraViewFromXR();
+	public string jsonString()
+    {
+        StereoCameraView cc;
+        try
+        {
+            cc = StereoCameraViewFromXR();
+        }
+        catch (NullReferenceException)
+        {
+            cc = StereoCameraViewFromCamera();
+        }
         string json = cc.json();
         return json;
 	}
@@ -71,14 +90,53 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
         return true;
     }
 
+    StereoCameraView StereoCameraViewFromCamera()
+    {
+        StereoCameraView scv;
+        
+        GameObject vrCamera = GameObject.Find("Camera");
+        
+        setEyeView(out scv.leftEyeView, vrCamera.transform.position, vrCamera.transform.rotation);
+        setEyeView(out scv.rightEyeView, vrCamera.transform.position, vrCamera.transform.rotation);
+        
+        return scv;
+    }
+    
     StereoCameraView StereoCameraViewFromXR()
     {
         StereoCameraView scv;
 
         // TODO opt 1: position relative to VR origin
         // => solved via parent GameObject?
-        Vector3 eyePosL = InputTracking.GetLocalPosition(XRNode.LeftEye) ; //- vrOrigin.transform.position;
-        Vector3 eyePosR = InputTracking.GetLocalPosition(XRNode.RightEye); //- vrOrigin.transform.position;
+        Vector3 eyePosL;
+        Vector3 eyePosR;
+        if (usePrediction)
+        {
+            OpenVR.System.GetDeviceToAbsoluteTrackingPose(ETrackingUniverseOrigin.TrackingUniverseStanding,
+                predictionValue, _poses);
+            SteamVR_Utils.RigidTransform leftT =
+                new SteamVR_Utils.RigidTransform(OpenVR.System.GetEyeToHeadTransform(EVREye.Eye_Left));
+            SteamVR_Utils.RigidTransform rightT =
+                new SteamVR_Utils.RigidTransform(OpenVR.System.GetEyeToHeadTransform(EVREye.Eye_Right));
+            SteamVR_Utils.RigidTransform headT = new SteamVR_Utils.RigidTransform(_poses[0].mDeviceToAbsoluteTracking);
+            SteamVR_Utils.RigidTransform leftPos = leftT * headT;
+            SteamVR_Utils.RigidTransform rightPos = rightT * headT;
+           eyePosL = leftPos.pos;
+           eyePosR = rightPos.pos;
+        }
+        else
+        {
+            if (useSmoothing)
+            {
+                eyePosL = InputTracking.GetLocalPosition(XRNode.LeftEye).Round(3); //- vrOrigin.transform.position;
+                eyePosR = InputTracking.GetLocalPosition(XRNode.RightEye).Round(3); //- vrOrigin.transform.position;
+            }
+            else
+            {
+                eyePosL = InputTracking.GetLocalPosition(XRNode.LeftEye); //- vrOrigin.transform.position;
+                eyePosR = InputTracking.GetLocalPosition(XRNode.RightEye); //- vrOrigin.transform.position;
+            }
+        }
 
         // TODO opt 2: rotate camera around dataset, if dataset can not be rotated in renderer
         // => additional Rotation to be added to dataset GameObject in Unity beforehand?
@@ -92,13 +150,21 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
                 // InputTracking only gives us 'local coordinates' relative to parent object
                 // get global position and orientation of left/right eye XR nodes
                 vrEyePositionL.transform.localPosition = eyePosL;
-                vrEyePositionL.transform.localRotation = eyeRotL;
                 vrEyePositionR.transform.localPosition = eyePosR;
-                vrEyePositionR.transform.localRotation = eyeRotR;
+                if (useSmoothing)
+                {
+                    vrEyePositionL.transform.localRotation = Quaternion.Lerp(vrEyePositionL.transform.localRotation,eyeRotL, rotSmooth);
+                    vrEyePositionR.transform.localRotation = Quaternion.Lerp(vrEyePositionR.transform.localRotation,eyeRotR, rotSmooth);
+                }
+                else
+                {
+                    vrEyePositionL.transform.localRotation = eyeRotL;
+                    vrEyePositionR.transform.localRotation = eyeRotR;
+                }
 
                 // get global pose of node
-                eyePosL = vrEyePositionL.transform.position;
-                eyePosR = vrEyePositionR.transform.position;
+                eyePosL = vrEyePositionL.transform.position - offsetSource.transform.position;
+                eyePosR = vrEyePositionR.transform.position - offsetSource.transform.position;
                 eyeRotL = vrEyePositionL.transform.rotation;
                 eyeRotR = vrEyePositionR.transform.rotation;
             }
