@@ -22,6 +22,10 @@ public class ZMQSender : MonoBehaviour {
     private PublisherSocket m_socket = null; // ZMQ Socket
     private List<(IJsonStringSendable,string)> m_sendsAndNames; // all sendable scripts attached to objects in the scene which give us json data
 
+    private int throttleFlag = 0; //Used for throttling via modulo
+    public int throttleValue = 1; //n-thFrame to be dropped 
+    public bool DataSaverMode = true;
+
     private class SendPackage
     {
         public string objectName;
@@ -70,25 +74,35 @@ public class ZMQSender : MonoBehaviour {
     }
 
 	// called once per frame, after all Updates are done
-	void LateUpdate () {
-        if(m_sendsAndNames != null)
+	void FixedUpdate () {
+        if (throttleFlag % throttleValue == 0 || throttleValue == 1)
         {
-            foreach(var j in m_sendsAndNames)
+            if (m_sendsAndNames != null)
             {
-                var send = j.Item1;
-                string name = send.nameString();
-                string json = send.jsonString();
-
-                this.send(j.Item2, new string[]{ name, json });
+                foreach (var j in m_sendsAndNames)
+                {
+                    var send = j.Item1;
+                    if (!DataSaverMode || send.hasChanged())
+                    {
+                        string name = send.nameString();
+                        string json = send.jsonString();
+                        this.send(j.Item2, new string[] {name, json});
+                    }
+                }
             }
+
+            foreach (var sp in m_sendsPackages)
+            {
+                this.send(sp.objectName, sp.sendFrames);
+            }
+
+            m_sendsPackages.Clear();
         }
 
-        foreach(var sp in m_sendsPackages)
-        {
-            this.send(sp.objectName, sp.sendFrames);
-        }
-        m_sendsPackages.Clear();
-	}
+        //Throttling
+        throttleFlag++;
+        if (throttleFlag >= throttleValue) throttleFlag = 0;
+    }
 
     private void send(string senderName, string[] messageFrames)
     {
