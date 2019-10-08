@@ -26,9 +26,6 @@ public class ZMQReceiver : MonoBehaviour {
 
     private SubscriberSocket m_socket = null; // ZMQ Socket
 
-    private ConcurrentDictionary<string, string> m_receivedValues = new ConcurrentDictionary<string, string>(); // address name -> received value
-    private List<(IJsonStringReceivable,string)> m_recvsAndNames = new List<(IJsonStringReceivable,string)>(); // all Convertible scripts attached to objects in the scene which give us json data
-
     private class ReceivePacket
     {
         public string objectName;
@@ -42,14 +39,15 @@ public class ZMQReceiver : MonoBehaviour {
             messageCallback = callback;
         }
     }
-    private List<ReceivePacket> m_receivePackets = new List<ReceivePacket>();
-    private ConcurrentQueue<ReceivePacket> m_pendingReceivePackets = new ConcurrentQueue<ReceivePacket>();
+    private List<ReceivePacket> m_receivePackets = new List<ReceivePacket>(); // list of subscribed receivers
+    private ConcurrentQueue<ReceivePacket> m_pendingReceivePackets = new ConcurrentQueue<ReceivePacket>(); // for dynamically added receivers
+    private ConcurrentDictionary<string, string> m_receivedValues = new ConcurrentDictionary<string, string>(); // address name -> received value
 
     private static BackgroundWorker m_workerThread = new BackgroundWorker();
 
 	void Start () {
-        // get all IJsonStringReceivable scripts which are attached to objects in the scene
-        m_recvsAndNames = GameObject.FindObjectsOfType<GameObject>() // gelt all GameObjects in scene
+        // get all IJsonStringReceivable scripts which are attached to objects in the scene upon startup (finds static receivers)
+        List<(IJsonStringReceivable,string)> m_recvsAndNames = GameObject.FindObjectsOfType<GameObject>() // gelt all GameObjects in scene
             .Where(o => o.GetComponents<IJsonStringReceivable>().Length > 0) // take only objects which have IJsonStringReceivable component
             .Select(o => // for each object, make tuple (IJsonStringReceivable[] convertibles, string objectName)
                 (o.GetComponents<IJsonStringReceivable>(), // take IJsonStringReceivable[] from all IJsonStringReceivable in the components
@@ -61,7 +59,10 @@ public class ZMQReceiver : MonoBehaviour {
         foreach(var j in m_recvsAndNames)
         {
             string convName = j.Item1.nameString();
-            string objectName = j.Item2;
+            var objectName = j.Item2;
+            var obj = j.Item1;
+
+            this.addReceiver(objectName, obj);
             Debug.Log("ZMQReceiver found Receivable '"+ convName +"' in Object '" + objectName + "'");
         }
         Debug.Log("ZMQReceiver has " + m_recvsAndNames.Count + " receivables");
@@ -79,9 +80,6 @@ public class ZMQReceiver : MonoBehaviour {
             AsyncIO.ForceDotNet.Force();
             m_socket = new SubscriberSocket();
             m_socket.Connect(m_address);
-
-            foreach(var i in m_recvsAndNames)
-                m_socket.Subscribe(i.Item1.nameString());
             Debug.Log("ZMQReceiver socket init ok");
         }
 
@@ -161,16 +159,6 @@ public class ZMQReceiver : MonoBehaviour {
 
 	//void PreUpdate () { // since Unity 2019.1.1
 	void Update () {
-        foreach(var j in m_recvsAndNames)
-        {
-            var receiver = j.Item1;
-            string value = null;
-
-            if(m_receivedValues.TryGetValue(receiver.nameString(), out value))
-            {
-                receiver.setJsonString(value);
-            }
-        }
         foreach(var rp in m_receivePackets)
         {
             string value = null;
