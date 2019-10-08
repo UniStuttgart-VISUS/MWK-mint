@@ -1,9 +1,14 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Xml.Schema;
 using UnityEngine;
 using Valve.VR;
 
 using interop;
+using UnityEngine.UIElements;
+using UnityEngine.XR;
 
 // Returns Camera Projection Parameters as Json string in interop format.
 // Projection parameters are read from the camera the script is attached to,
@@ -14,13 +19,37 @@ public class CameraProjectionJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public string Name = "CameraProjection";
     public bool useHmdParams = true;
+    public bool adaptiveResolution = true;
+    public uint resolutionDivisor = 2;
 
     private Camera m_camera = null;
+    private Vector3 lastEyePosition;
+    private float velocity3D;
 
     public void Start()
     {
         m_camera = GetComponent<Camera>();
         //useHmdParams = OpenVR.IsHmdPresent();
+        if (EnvConstants.DesktopMode && !OpenVR.IsHmdPresent())
+        {
+            useHmdParams = false;
+            m_camera = Camera.main;
+        }
+    }
+
+    public void Update()
+    {
+        if (adaptiveResolution)
+        {
+            //Calculate current velocity factor (apply minimal smoothing)
+            Vector3 currentEyePosition = InputTracking.GetLocalPosition(XRNode.LeftEye);
+            velocity3D = (0.02f * velocity3D) + (0.98f * Vector3.Distance(currentEyePosition, lastEyePosition));
+            lastEyePosition = currentEyePosition;
+            var velocityDivisor = Mathf.Clamp(Mathf.RoundToInt(velocity3D * 100), 1, 4);
+            var distanceDivisor = Mathf.Clamp(Mathf.RoundToInt(currentEyePosition.magnitude/2),1,5);
+
+            resolutionDivisor = (uint)(velocityDivisor * distanceDivisor);
+        }
     }
 
     private void printError()
@@ -71,8 +100,8 @@ public class CameraProjectionJsonSender : MonoBehaviour, IJsonStringSendable {
         cp.nearClipPlane = m_camera.nearClipPlane;
         cp.farClipPlane = m_camera.farClipPlane;
 
-        cp.pixelWidth = (uint)SteamVR.instance.sceneWidth; // SteamVR gives extended render size for symmetric projection
-        cp.pixelHeight = (uint)SteamVR.instance.sceneHeight;
+        cp.pixelWidth = (uint)(SteamVR.instance.sceneWidth/resolutionDivisor); // SteamVR gives extended render size for symmetric projection
+        cp.pixelHeight = (uint)(SteamVR.instance.sceneHeight/resolutionDivisor);
 
         cp.aspect = SteamVR.instance.aspect;
         cp.fieldOfViewY_rad = SteamVR.instance.fieldOfView * Mathf.Deg2Rad; // vertical field of view in radians
