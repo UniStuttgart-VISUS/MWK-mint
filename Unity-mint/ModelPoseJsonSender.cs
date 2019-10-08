@@ -8,6 +8,7 @@ using interop;
 public class ModelPoseJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public string Name = "ModelPose";
+    private Transform lastSentTransform = new Transform();
 
 	public string nameString() {
         return this.Name;
@@ -15,11 +16,17 @@ public class ModelPoseJsonSender : MonoBehaviour, IJsonStringSendable {
 
 	public string jsonString() {
         ModelPose mc = ModelConfigurationFromTransform(gameObject.transform);
+        lastSentTransform = gameObject.transform;
         string json = mc.json();
         return json;
 	}
-	
-    ModelPose ModelConfigurationFromTransform(Transform transform)
+
+	public bool hasChanged()
+	{
+		return lastSentTransform != gameObject.transform;
+	}
+
+	ModelPose ModelConfigurationFromTransform(Transform transform)
     {
         ModelPose mc;
         mc.translation = convert.toOpenGL(transform.localPosition); // TODO: if grabbed by controller, we want position in world space?

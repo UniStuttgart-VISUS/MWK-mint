@@ -38,7 +38,13 @@ public class CameraProjectionJsonSender : MonoBehaviour, IJsonStringSendable {
         string json = cp.json();
         return json;
 	}
-	
+
+    public bool hasChanged()
+    {
+        //Send each 60 frames
+        return (Time.frameCount%60 == 0);
+    }
+
     private CameraProjection CameraProjectionFromCamera(Camera cam)
     {
         CameraProjection cp;

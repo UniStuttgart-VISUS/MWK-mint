@@ -42,7 +42,12 @@ public class CameraConfigurationJsonSender : MonoBehaviour, IJsonStringSendable 
         string json = cc.json();
         return json;
 	}
-	
+
+    public bool hasChanged()
+    {
+        return true;
+    }
+
     CameraConfiguration CameraConfigurationFromCamera(Camera cam)
     {
         if(cam == null)

@@ -25,5 +25,9 @@ public class BBoxCorrectionJsonSender : MonoBehaviour, IJsonStringSendable
         string json = mp.json();
         return json;
 	}
-	
+
+	public bool hasChanged()
+	{
+		return true;
+	}
 }

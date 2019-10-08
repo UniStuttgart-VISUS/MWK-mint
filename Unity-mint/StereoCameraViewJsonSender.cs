@@ -65,7 +65,12 @@ public class StereoCameraViewJsonSender : MonoBehaviour, IJsonStringSendable {
         string json = cc.json();
         return json;
 	}
-	
+
+    public bool hasChanged()
+    {
+        return true;
+    }
+
     StereoCameraView StereoCameraViewFromXR()
     {
         StereoCameraView scv;

@@ -11,5 +11,6 @@ namespace interop
     public interface IJsonStringSendable {
             string nameString();
             string jsonString();
+            bool hasChanged();
     }
 }
