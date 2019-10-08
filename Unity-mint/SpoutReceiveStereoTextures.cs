@@ -40,6 +40,14 @@ public class SpoutReceiveStereoTextures: MonoBehaviour
 
         if(left.updateTexture() || right.updateTexture())
         {
+            //Notify all of loading finished
+            GameObject[] gos;
+            gos = GameObject.FindGameObjectsWithTag("FileLoaderAffected"); 
+ 
+            for(var i = 0; i < gos.Length; i++){
+                gos[i].SendMessage("FileLoadingStatus", "finished");
+            }
+            
             var leftTex = left.targetTexture;
             var rightTex = right.targetTexture;
 
@@ -64,6 +72,17 @@ public class SpoutReceiveStereoTextures: MonoBehaviour
 
             var meshRenderer = this.gameObject.GetComponent<MeshRenderer>();
             meshRenderer.materials = new Material[] { this.renderVROverlayMaterial };
+        }
+    }
+
+    public void FileLoadingStatus(string status)
+    {
+        if (status == "triggered")
+        {
+            GetComponent<MeshRenderer>().enabled = false;
+        } else if (status == "finished")
+        {
+            GetComponent<MeshRenderer>().enabled = true;
         }
     }
 
