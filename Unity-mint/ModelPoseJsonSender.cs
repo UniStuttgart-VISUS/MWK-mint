@@ -8,7 +8,7 @@ using interop;
 public class ModelPoseJsonSender : MonoBehaviour, IJsonStringSendable {
 
     public string Name = "ModelPose";
-    private Transform lastSentTransform = new Transform();
+    private Transform lastSentTransform = new RectTransform();
 
 	public string nameString() {
         return this.Name;

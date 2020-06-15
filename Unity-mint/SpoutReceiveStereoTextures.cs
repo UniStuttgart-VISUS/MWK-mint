@@ -13,6 +13,8 @@ public class SpoutReceiveStereoTextures: MonoBehaviour
     public string interopBaseName = "/UnityInterop/";
     public string instanceName = "DefaultName"; // gets 'Left' and 'Right' attached for left and right texture
 
+    public GameObject LoadingIndicatorRef;
+
     private EyeResources[] stereoResources = null;
 
     public Vector2 leftTextureSize = new Vector2(0.0f, 0.0f);

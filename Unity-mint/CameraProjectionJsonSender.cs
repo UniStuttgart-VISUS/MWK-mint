@@ -20,7 +20,7 @@ public class CameraProjectionJsonSender : MonoBehaviour, IJsonStringSendable {
     public string Name = "CameraProjection";
     public bool useHmdParams = true;
     public bool adaptiveResolution = true;
-    public uint resolutionDivisor = 2;
+    public uint resolutionDivisor = 1;
 
     private Camera m_camera = null;
     private Vector3 lastEyePosition;

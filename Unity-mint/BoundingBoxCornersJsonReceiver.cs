@@ -21,8 +21,6 @@ public class BoundingBoxCornersJsonReceiver : MonoBehaviour, IJsonStringReceivab
     public bool scaleDatasetDown = false;
     private float m_scaleDownFactor = 1.0f;
 
-    // this enables resetting the received bbox to a different one on the fly
-    // BUT the new bbox MUST have different values than the one before
     private string m_inputJsonString = null;
     private string m_currentlyUsedJsonString = "";
 

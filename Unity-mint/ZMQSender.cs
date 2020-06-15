@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System;
 
 using NetMQ;
 using NetMQ.Sockets;
@@ -127,12 +128,12 @@ public class ZMQSender : MonoBehaviour {
         sendMessage(senderName, new string[] { address, message });
     }
 
-    private void OnDisable()
+    private void OnDestroy()
     {
         if(m_socket != null)
         {
+            m_socket.Unbind(m_address);
             m_socket.Dispose();
-            NetMQConfig.Cleanup(false);
             m_socket = null;
             m_sendsAndNames = null;
         }

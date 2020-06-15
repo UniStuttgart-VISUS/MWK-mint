@@ -1,13 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine; // Vector4, Matrix4x4
-using System; // Serializable
+using System;
 using System.Linq;
 using System.Text;
 using UnityEditor;
 using UnityEngine.UIElements;
 using Object = System.Object;
 
+// Serializable
 
 // This interop namespace offers the Unity-side implementation of data structures and routines
 // to exchange data with an OpenGL application which uses the MWK-mint library to organize its

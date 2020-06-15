@@ -66,7 +66,8 @@ public class ZMQReceiver : MonoBehaviour {
             Debug.Log("ZMQReceiver found Receivable '"+ convName +"' in Object '" + objectName + "'");
         }
         Debug.Log("ZMQReceiver has " + m_recvsAndNames.Count + " receivables");
-
+        
+        AsyncIO.ForceDotNet.Force();
         start();
     }
 
@@ -122,10 +123,11 @@ public class ZMQReceiver : MonoBehaviour {
             log("ZMQReceiver: " + address + " / " + message);
         }
 
+        m_socket.Disconnect(m_address);
         m_socket.Dispose();
-        NetMQConfig.Cleanup(false);
-        e.Cancel = true;
         m_socket = null;
+
+        e.Cancel = true;
         Debug.Log("ZMQReceiver: async thread finished");
     }
 
@@ -143,8 +145,9 @@ public class ZMQReceiver : MonoBehaviour {
     {
         if(!m_workerThread.IsBusy)
         {
-            m_workerThread.DoWork += receiveMessagesAsync;
             m_workerThread.WorkerSupportsCancellation = true;
+            m_workerThread.WorkerReportsProgress = true;
+            m_workerThread.DoWork += receiveMessagesAsync;
             m_workerThread.RunWorkerAsync();
         }
     }
@@ -183,7 +186,8 @@ public class ZMQReceiver : MonoBehaviour {
     private void OnDisable()
     {
         stop();
-        System.Threading.Thread.Sleep(1000);
+        while(!m_workerThread.CancellationPending)
+            System.Threading.Thread.Sleep(1000);
         Debug.Log("ZMQReceiver: stopped");
     }
 }
