@@ -1,4 +1,4 @@
-#include "interop.hpp"
+﻿#include "interop.hpp"
 
 #include <zmq.hpp>
 #include "SpoutSender.h"
@@ -15,16 +15,78 @@ namespace {
 #ifndef APIENTRYP
 #define APIENTRYP APIENTRY *
 #endif
-	typedef void (APIENTRYP glDrawBuffersFuncPtr)(GLsizei n, const GLenum *bufs);
-	glDrawBuffersFuncPtr my_glDrawBuffers;
-	#define glDrawBuffersEXT my_glDrawBuffers
+
+#define MAKE_GL_CALL(FUNCTION_NAME, RETURN_TYPE, ...) \
+	typedef RETURN_TYPE (APIENTRYP FUNCTION_NAME ## FuncPtr)(__VA_ARGS__); \
+	FUNCTION_NAME ## FuncPtr m ## FUNCTION_NAME;
+
+	//typedef void (APIENTRYP glDrawBuffersEXTFuncPtr)(GLsizei n, const GLenum *bufs);
+	//glDrawBuffersEXTFuncPtr my_glDrawBuffersEXT;
+	//#define glDrawBuffersEXT my_glDrawBuffersEXT
+	typedef char GLchar;
+	typedef int GLint;
+	#define GL_FRAGMENT_SHADER                0x8B30
+	#define GL_VERTEX_SHADER                  0x8B31
+	#define GL_ARRAY_BUFFER                   0x8892
+	#define GL_LINK_STATUS                    0x8B82
+	#define GL_TEXTURE0                       0x84C0
+	#define GL_ACTIVE_TEXTURE                 0x84E0
+	MAKE_GL_CALL(glDrawBuffersEXT, void, GLsizei n, const GLenum *bufs)
+	MAKE_GL_CALL(glCreateShader, GLuint, GLenum shaderType)
+	MAKE_GL_CALL(glShaderSource, void, GLuint shader​, GLsizei count​, const GLchar **string​, const GLint *length)
+	MAKE_GL_CALL(glCompileShader, void, GLuint shader)
+	MAKE_GL_CALL(glCreateProgram, GLuint, void)
+	MAKE_GL_CALL(glAttachShader, void, GLuint program​, GLuint shader​)
+	MAKE_GL_CALL(glLinkProgram, void, GLuint program)
+	MAKE_GL_CALL(glDeleteShader, void, GLuint shader)
+	MAKE_GL_CALL(glGetUniformLocation, GLint, GLuint program​, const GLchar *name​)
+	MAKE_GL_CALL(glGenVertexArrays, void, GLsizei n​, GLuint *arrays)
+	MAKE_GL_CALL(glBindVertexArray, void, GLuint array​)
+	//MAKE_GL_CALL(glBindBuffer, void, GLenum target​, GLuint buffer​)
+	MAKE_GL_CALL(glDeleteProgram, void, GLuint program)
+	MAKE_GL_CALL(glDeleteVertexArrays, void, GLsizei n​, const GLuint *arrays​)
+	MAKE_GL_CALL(glGetProgramiv, void, GLuint program, GLenum pname, GLint *params)
+	MAKE_GL_CALL(glGetProgramInfoLog, void, GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
+	MAKE_GL_CALL(glUseProgram, void, GLuint shader)
+	MAKE_GL_CALL(glDrawArrays, void, GLenum mode, GLint first, GLsizei count)
+	MAKE_GL_CALL(glActiveTexture, void, GLenum texture)
+	MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
+	MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
+	MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
 
 	void loadGlExtensions()
 	{
 		Spout sp;
 		sp.OpenSpout(); // loads GL functions
-		const auto fptr = wglGetProcAddress("glDrawBuffers");
-		glDrawBuffersEXT = (glDrawBuffersFuncPtr)fptr;
+
+#define GET_GL_CALL(FUNCTION_NAME) \
+		const auto FUNCTION_NAME ## fptr = wglGetProcAddress(#FUNCTION_NAME); \
+		m ## FUNCTION_NAME = (FUNCTION_NAME ## FuncPtr)FUNCTION_NAME ## fptr;
+
+		//const auto fptr = wglGetProcAddress("glDrawBuffers");
+		//glDrawBuffersEXT = (glDrawBuffersEXTFuncPtr)fptr;
+		GET_GL_CALL(glDrawBuffersEXT)
+		GET_GL_CALL(glCreateShader)
+		GET_GL_CALL(glShaderSource)
+		GET_GL_CALL(glCompileShader)
+		GET_GL_CALL(glCreateProgram)
+		GET_GL_CALL(glAttachShader)
+		GET_GL_CALL(glLinkProgram)
+		GET_GL_CALL(glDeleteShader)
+		GET_GL_CALL(glGetUniformLocation)
+		GET_GL_CALL(glGenVertexArrays)
+		GET_GL_CALL(glBindVertexArray)
+		//GET_GL_CALL(glBindBuffer)
+		GET_GL_CALL(glDeleteProgram)
+		GET_GL_CALL(glDeleteVertexArrays)
+		GET_GL_CALL(glGetProgramiv)
+		GET_GL_CALL(glGetProgramInfoLog)
+		GET_GL_CALL(glUseProgram)
+		GET_GL_CALL(glDrawArrays)
+		GET_GL_CALL(glActiveTexture)
+		GET_GL_CALL(glBindTexture)
+		GET_GL_CALL(glUniform1i)
+		GET_GL_CALL(glUniform2i)
 	}
 
 	static zmq::context_t g_zmqContext{1};
@@ -52,7 +114,7 @@ static const void restorePreviousFbo(interop::glFramebuffer* fbo)
 void interop::glFramebuffer::init(uint width, uint height) {
 
 	// im so sorry
-	if (!glDrawBuffersEXT)
+	if (!mglDrawBuffersEXT)
 		loadGlExtensions();
 
 	m_width = width;
@@ -119,9 +181,8 @@ void interop::glFramebuffer::resizeTexture(uint width, uint height) {
 void interop::glFramebuffer::bind() {
 	savePreviousFbo(this);
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_glFbo);
-	//GLuint attachments[1] = { GL_COLOR_ATTACHMENT0_EXT };
-	//glDrawBuffersEXT(1, attachments);
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
+	glViewport(0, 0, m_width, m_height);
 }
 
 void interop::glFramebuffer::unbind() {
@@ -146,7 +207,6 @@ void interop::glFramebuffer::blitTexture() {
 
 	restorePreviousFbo(this);
 }
-#undef glDrawBuffersEXT
 
 
 #define m_spout (static_cast<SpoutSender*>(m_sender.get()))
@@ -191,15 +251,12 @@ void interop::TextureSender::destroy() {
 	m_name = "";
 }
 
-void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint height) {
-	if (width == 0 || height == 0)
-		return;
-
+bool interop::TextureSender::resizeTexture(uint width, uint height) {
 	if (!m_sender)
-		return;
+		return false;
 
-	if (textureHandle == 0)
-		return;
+	if (width == 0 || height == 0)
+		return false;
 
 	if (m_width != width || m_height != height)
 	{
@@ -207,7 +264,17 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint he
 		m_height = height;
 
 		m_spout->UpdateSender(m_name.c_str(), m_width, m_height);
+
+		return true;
 	}
+}
+
+void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint height) {
+	if (textureHandle == 0)
+		return;
+
+	if (!resizeTexture(width, height))
+		return;
 
 	m_spout->SendTexture(textureHandle, GL_TEXTURE_2D, m_width, m_height);
 }
@@ -217,6 +284,179 @@ void interop::TextureSender::sendTexture(glFramebuffer& fb) {
 	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
 }
 
+
+interop::TexturePackageSender::TexturePackageSender() {}
+interop::TexturePackageSender::~TexturePackageSender() {}
+
+void interop::TexturePackageSender::init(std::string name, uint width, uint height) {
+	m_name = name + "_hugetexture";
+	m_width = width;
+	m_height = height;
+
+	m_hugeFbo.init();
+	m_hugeTextureSender.init(m_name);
+	this->initGLresources();
+	
+	this->makeHugeTexture(m_width, m_height);
+}
+
+void interop::TexturePackageSender::destroy() {
+	m_hugeFbo.destroy();
+	m_hugeTextureSender.destroy();
+	this->destroyGLresources();
+}
+
+void interop::TexturePackageSender::makeHugeTexture(const uint originalWidth, const uint originalHeight) {
+	m_hugeWidth = originalWidth * 2;
+	m_hugeHeight = originalHeight * 2;
+
+	m_hugeFbo.resizeTexture(m_hugeWidth, m_hugeHeight);
+	m_hugeTextureSender.resizeTexture(m_hugeWidth, m_hugeHeight); // resizes sender texture
+}
+
+void interop::TexturePackageSender::sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height) {
+	this->sendTexturePackage(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8, fb_left.m_glTextureDepth, fb_right.m_glTextureDepth, width, height);
+}
+
+void interop::TexturePackageSender::sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height) {
+	if (m_width != width || m_height != height)
+		this->makeHugeTexture(width, height);
+
+	this->blitTextures(color_left, color_right, depth_left, depth_right, width, height);
+
+	m_hugeTextureSender.sendTexture(m_hugeFbo);
+}
+
+void interop::TexturePackageSender::initGLresources() {
+	const char* vertex_shader_source =
+R"(
+	#version 400
+
+	in int gl_VertexID;
+
+	const vec4 unitQuad[4] =
+	vec4[](
+		vec4(-1.0f, 1.0f, 0.0f, 1.0f),
+		vec4(-1.0f,-1.0f, 0.0f, 1.0f),
+		vec4( 1.0f, 1.0f, 0.0f, 1.0f),
+		vec4( 1.0f,-1.0f, 0.0f, 1.0f)
+	);
+	
+	void main()
+	{
+	    gl_Position = unitQuad[gl_VertexID];
+	}
+)";
+
+	const char* fragment_shader_source =
+R"(
+	#version 400
+
+	in vec4 gl_FragCoord;
+
+	uniform sampler2D left_color;
+	uniform sampler2D right_color;
+	uniform sampler2D left_depth;
+	uniform sampler2D right_depth;
+	uniform ivec2 texture_size;
+
+	out vec4 FragColor;
+
+	void main()
+	{
+		vec4 result = vec4(0.0f);
+		ivec2 screen_coords = ivec2(gl_FragCoord.xy);
+
+		bool side = bool(screen_coords.x < texture_size.x); // true => left side, false => right side
+		bool color_or_depth = bool(screen_coords.y < texture_size.y); // true => color, false => depth
+		ivec2 lookup_coord = ivec2(mod(gl_FragCoord.xy, texture_size.xy));
+
+		if(color_or_depth) { // color
+			result = (side) 
+                ? texelFetch(left_color, lookup_coord, 0).rgba
+                : texelFetch(right_color, lookup_coord, 0).rgba;
+		} else { // depth
+			float depth = (side) 
+                ? texelFetch(left_depth, lookup_coord, 0).r
+                : texelFetch(right_depth, lookup_coord, 0).r;
+
+			uint deph_uint = floatBitsToUint(depth); // version 330
+			vec4 depth_rgba8 = unpackUnorm4x8(deph_uint); // version 400
+
+			result = depth_rgba8;
+		}
+
+		FragColor = result;
+		//FragColor = vec4(mod(gl_FragCoord.xy, texture_size.xy)/(texture_size.xy), 0.0f, 1.0f);
+	}
+)";
+
+	const uint vertex_shader = mglCreateShader(GL_VERTEX_SHADER);
+	mglShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
+	mglCompileShader(vertex_shader);
+	const uint fragment_shader = mglCreateShader(GL_FRAGMENT_SHADER);
+	mglShaderSource(fragment_shader, 1, &fragment_shader_source, NULL);
+	mglCompileShader(fragment_shader);
+
+	m_shader = mglCreateProgram();
+	mglAttachShader(m_shader, vertex_shader);
+	mglAttachShader(m_shader, fragment_shader);
+	mglLinkProgram(m_shader);
+
+	int success = 0;
+	mglGetProgramiv(m_shader, GL_LINK_STATUS, &success);
+	if (!success) {
+		std::string infoLog;
+		infoLog.resize(512);
+		mglGetProgramInfoLog(m_shader, 512, NULL, const_cast<char*>(infoLog.c_str()));
+		std::cout << infoLog << std::endl;
+	}
+
+	mglDeleteShader(vertex_shader);
+	mglDeleteShader(fragment_shader);
+
+	m_uniform_locations[0] = mglGetUniformLocation(m_shader, "texture_size");
+	m_uniform_locations[1] = mglGetUniformLocation(m_shader, "left_color");
+	m_uniform_locations[2] = mglGetUniformLocation(m_shader, "left_depth");
+	m_uniform_locations[3] = mglGetUniformLocation(m_shader, "right_color");
+	m_uniform_locations[4] = mglGetUniformLocation(m_shader, "right_depth");
+
+	mglGenVertexArrays(1, &m_vao);
+}
+
+void interop::TexturePackageSender::destroyGLresources() {
+	mglDeleteProgram(m_shader);
+	mglDeleteVertexArrays(1, &m_vao);
+}
+
+void interop::TexturePackageSender::blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height) {
+	GLint previous_active_texture;
+	glGetIntegerv(GL_ACTIVE_TEXTURE, &previous_active_texture);
+
+	m_hugeFbo.bind(); // also sets viewport
+	mglUseProgram(m_shader);
+	mglBindVertexArray(m_vao);
+	// TODO: set + restore buffer reset values
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	const auto bindTexture = [&](const uint texture_uniform_location, const uint texture_handle, const uint binding_point) {
+		mglActiveTexture(GL_TEXTURE0 + binding_point); // activate the texture unit first before binding texture
+		mglBindTexture(GL_TEXTURE_2D, texture_handle);
+		mglUniform1i(texture_uniform_location, binding_point); // set it manually
+	};
+
+	mglUniform2i(m_uniform_locations[0], static_cast<int>(width), static_cast<int>(height));
+	bindTexture(m_uniform_locations[1], color_left_texture, 0);
+	bindTexture(m_uniform_locations[2], depth_left_texture, 1);
+	bindTexture(m_uniform_locations[3], color_right_texture, 2);
+	bindTexture(m_uniform_locations[4], depth_right_texture, 3);
+
+	mglDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	mglBindVertexArray(0);
+	m_hugeFbo.unbind();
+	mglActiveTexture(previous_active_texture); // activate the texture unit first before binding texture
+}
 
 #define m_socket (static_cast<zmq::socket_t*>(m_sender.get()))
 interop::DataSender::DataSender() {

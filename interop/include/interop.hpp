@@ -35,6 +35,7 @@ using uint = unsigned int;
 
 		void init(std::string name, uint width = 1, uint height = 1);
 		void destroy();
+		bool resizeTexture(uint width, uint height);
 		void sendTexture(uint texture, uint width, uint height);
 		void sendTexture(glFramebuffer& fb);
 
@@ -42,6 +43,33 @@ using uint = unsigned int;
 		uint m_width = 0;
 		uint m_height = 0;
 		std::shared_ptr<void> m_sender;
+	};
+
+	// packs color and depth textures into one huge texture before sharing texture data with other processes
+	// input widht/height are for the original size of the input textures
+	struct TexturePackageSender {
+		TexturePackageSender();
+		~TexturePackageSender();
+
+		void init(std::string name, const uint width = 1, const uint height = 1);
+		void destroy();
+		void sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height);
+		void sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height);
+
+		std::string m_name = "";
+		uint m_width = 0;
+		uint m_height = 0;
+		uint m_hugeWidth = 0;
+		uint m_hugeHeight = 0;
+		glFramebuffer m_hugeFbo; // holds huge texture for sending 2x color, 2x depth at once
+		TextureSender m_hugeTextureSender;
+		void makeHugeTexture(const uint originalWidth, const uint originalHeight);
+		uint m_shader = 0;
+		uint m_vao = 0;
+		uint m_uniform_locations[5] = { 0 };
+		void initGLresources();
+		void destroyGLresources();
+		void blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height);
 	};
 
 	struct DataSender {

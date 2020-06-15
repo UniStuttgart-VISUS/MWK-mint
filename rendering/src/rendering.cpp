@@ -15,6 +15,9 @@
 glm::vec4 toGlm(const interop::vec4& v) {
 	return glm::vec4{v.x, v.y, v.z, v.w};
 }
+interop::vec4 toInterop(const glm::vec3& v) {
+	return interop::vec4{v.x, v.y, v.z, 0.0f};
+}
 glm::mat4 toGlm(const interop::mat4& m) {
 	return glm::mat4{
 		toGlm(m.data[0]),
@@ -224,6 +227,9 @@ int main(void)
 	glAttachShader(program, fragment_shader);
 	glLinkProgram(program);
 
+	glDeleteShader(vertex_shader);
+	glDeleteShader(fragment_shader);
+
 	mvp_location = glGetUniformLocation(program, "MVP");
 	vpos_location = glGetAttribLocation(program, "vPos");
 	vcol_location = glGetAttribLocation(program, "vCol");
@@ -291,7 +297,14 @@ int main(void)
 	bboxCorrectionReceiver.start("tcp://localhost:12345", "BBoxCorrection");
 	auto bboxCorrectionPose = interop::ModelPose(); // identity matrix or received from unity
 
-	auto view = glm::lookAt(glm::vec3{0.0f, 0.0f, 3.0f}/*eye*/, glm::vec3{0.0f}/*center*/, glm::vec3{0.0f, 1.0f, 0.0f}/*up*/);
+	interop::TexturePackageSender texturepackageSender;
+	texturepackageSender.init("/UnityInterop/DefaultSingleStereo", 400, 600);
+
+	interop::CameraView defaultCameraView;
+	defaultCameraView.eyePos    = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
+	defaultCameraView.lookAtPos = toInterop(glm::vec3{ 0.0f });
+	defaultCameraView.camUpDir  = toInterop(glm::vec3{ 0.0f, 1.0f, 0.0f });
+	auto view = glm::lookAt(glm::vec3(toGlm(defaultCameraView.eyePos)), glm::vec3(toGlm(defaultCameraView.lookAtPos)), glm::vec3(toGlm(defaultCameraView.camUpDir)));
 	float ratio = initialWidth/ (float) initialHeight;
 	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
 
@@ -316,34 +329,39 @@ int main(void)
 				* glm::scale(glm::vec3{modelScale});
 		};
 
-		modelPoseReceiver.getData<interop::ModelPose>(modelPose); // if has new data, returns true and overwrites modelPose
-		glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
-		const glm::mat4 model = getModelMatrix(modelPose);
+		bool received_data = false;
+		if (received_data |= modelPoseReceiver.getData<interop::ModelPose>(modelPose)) { // if has new data, returns true and overwrites modelPose
+			glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
+			const glm::mat4 model = getModelMatrix(modelPose);
+		}
 
-		bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose);
-		glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
+		if (received_data |= bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose)) {
+			glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
+		}
 
-		cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection);
-		projection = glm::perspective(
-			cameraProjection.fieldOfViewY_rad,
-			cameraProjection.aspect,
-			cameraProjection.nearClipPlane,
-			cameraProjection.farClipPlane);
+		if (received_data |= cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection)) {
+			projection = glm::perspective(
+				cameraProjection.fieldOfViewY_rad,
+				cameraProjection.aspect,
+				cameraProjection.nearClipPlane,
+				cameraProjection.farClipPlane);
+
+			const bool hasNewWindowSize =
+				(width != cameraProjection.pixelWidth)
+				|| (height != cameraProjection.pixelHeight);
+			if (hasNewWindowSize) {
+				width = cameraProjection.pixelWidth;
+				height = cameraProjection.pixelHeight;
+				glfwSetWindowSize(window, width, height);
+			}
+		}
 		//projection = toGlm(cameraConfig.projectionMatrix);
 
 		//cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
 		//cameraPoseReceiver.getData<interop::ModelPose>(cameraPose);
-		stereoCameraViewReceiver.getData<interop::StereoCameraView>(stereoCameraView);
+		received_data |= stereoCameraViewReceiver.getData<interop::StereoCameraView>(stereoCameraView);
 
 		//glfwGetFramebufferSize(window, &width, &height);
-		const bool hasNewWindowSize =
-			(width != cameraProjection.pixelWidth)
-			|| (height != cameraProjection.pixelHeight);
-		if (hasNewWindowSize) {
-			width = cameraProjection.pixelWidth;
-			height = cameraProjection.pixelHeight;
-			glfwSetWindowSize(window, width, height);
-		}
 
 		const auto renderFromEye = [&](interop::CameraView& camView, interop::glFramebuffer& fbo, interop::TextureSender& ts)
 		{
@@ -384,8 +402,24 @@ int main(void)
 			fbo.blitTexture(); // blit custom fbo to default framebuffer
 		};
 
-		renderFromEye(stereoCameraView.leftEyeView, fbo_left, ts_left);
-		renderFromEye(stereoCameraView.rightEyeView, fbo_right, ts_right);
+		static bool received_any_data = false;
+		if (received_any_data |= received_data) {
+			renderFromEye(stereoCameraView.leftEyeView, fbo_left, ts_left);
+			renderFromEye(stereoCameraView.rightEyeView, fbo_right, ts_right);
+		}
+		else {
+			auto leftView{ defaultCameraView };
+			leftView.eyePos.x = leftView.eyePos.x - 2.6;
+			leftView.eyePos.y = leftView.eyePos.y - 1.6;
+			renderFromEye(leftView, fbo_left, ts_left);
+
+			auto rightView{ defaultCameraView };
+			rightView.eyePos.x = rightView.eyePos.x + 1.6;
+			rightView.eyePos.y = rightView.eyePos.y + 1.6;
+			renderFromEye(rightView, fbo_right, ts_right);
+		}
+
+		texturepackageSender.sendTexturePackage(fbo_left, fbo_right, width, height);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
