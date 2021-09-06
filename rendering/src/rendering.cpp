@@ -120,6 +120,7 @@ static const char* vertex_shader_source = R"(
 
 static const char* fragment_shader_source = R"(
 	varying vec3 color;
+	in vec4 gl_FragCoord;
 	void main()
 	{
 		gl_FragColor = vec4(color, 1.0);
@@ -192,7 +193,6 @@ int main(void)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_FLOATING, GLFW_TRUE);
 	int initialWidth = 640;
 	int initialHeight = 480;
 	window = glfwCreateWindow(initialWidth, initialHeight, "Triangle Rendering", NULL, NULL);
@@ -261,9 +261,10 @@ int main(void)
 	fbo_right.init();
 
 	interop::TextureSender ts_left; // has spout sender
-	ts_left.init("/UnityInterop/DefaultNameLeft");
+	std::string default_name = "/UnityInterop/DefaultName";
+	ts_left.init(default_name + "Left");
 	interop::TextureSender ts_right;
-	ts_right.init("/UnityInterop/DefaultNameRight");
+	ts_right.init(default_name + "Right");
 
 	interop::DataReceiver modelPoseReceiver;
 	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
@@ -272,7 +273,7 @@ int main(void)
 	//interop::DataReceiver cameraPoseReceiver;
 	//cameraPoseReceiver.start("tcp://localhost:12345", "CameraPose");
 	//auto cameraPose = interop::ModelPose();
-	//
+	
 	//interop::DataReceiver cameraConfigReceiver;
 	//cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
 	//auto cameraConfig = interop::CameraConfiguration();
