@@ -241,7 +241,9 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
 	m_spout->SetCPUmode(false);
 	m_spout->SetMemoryShareMode(false);
 	m_spout->SetDX9(false);
-	m_spout->CreateSender(m_name.c_str(), m_width, m_height);
+	// DXGI_FORMAT_R8G8B8A8_UNORM; // default DX11 format - compatible with DX9 (28)
+	unsigned int format = 28;
+	m_spout->CreateSender(m_name.c_str(), m_width, m_height, format);
 }
 
 void interop::TextureSender::destroy() {
