@@ -31,26 +31,27 @@ namespace {
 	#define GL_LINK_STATUS                    0x8B82
 	#define GL_TEXTURE0                       0x84C0
 	#define GL_ACTIVE_TEXTURE                 0x84E0
-	MAKE_GL_CALL(glDrawBuffersEXT, void, GLsizei n, const GLenum *bufs)
+	#define GL_DEPTH_COMPONENT32              0x81A7
+	//MAKE_GL_CALL(glDrawBuffersEXT, void, GLsizei n, const GLenum *bufs)
 	MAKE_GL_CALL(glCreateShader, GLuint, GLenum shaderType)
-	MAKE_GL_CALL(glShaderSource, void, GLuint shader​, GLsizei count​, const GLchar **string​, const GLint *length)
+	MAKE_GL_CALL(glShaderSource, void, GLuint shader, GLsizei count, const GLchar **string, const GLint *length)
 	MAKE_GL_CALL(glCompileShader, void, GLuint shader)
 	MAKE_GL_CALL(glCreateProgram, GLuint, void)
-	MAKE_GL_CALL(glAttachShader, void, GLuint program​, GLuint shader​)
+	MAKE_GL_CALL(glAttachShader, void, GLuint program, GLuint shader)
 	MAKE_GL_CALL(glLinkProgram, void, GLuint program)
 	MAKE_GL_CALL(glDeleteShader, void, GLuint shader)
-	MAKE_GL_CALL(glGetUniformLocation, GLint, GLuint program​, const GLchar *name​)
-	MAKE_GL_CALL(glGenVertexArrays, void, GLsizei n​, GLuint *arrays)
-	MAKE_GL_CALL(glBindVertexArray, void, GLuint array​)
-	//MAKE_GL_CALL(glBindBuffer, void, GLenum target​, GLuint buffer​)
+	MAKE_GL_CALL(glGetUniformLocation, GLint, GLuint program, const GLchar *name)
+	MAKE_GL_CALL(glGenVertexArrays, void, GLsizei n, GLuint *arrays)
+	MAKE_GL_CALL(glBindVertexArray, void, GLuint array)
+	MAKE_GL_CALL(glBindBuffer, void, GLenum target, GLuint buffer)
 	MAKE_GL_CALL(glDeleteProgram, void, GLuint program)
-	MAKE_GL_CALL(glDeleteVertexArrays, void, GLsizei n​, const GLuint *arrays​)
+	MAKE_GL_CALL(glDeleteVertexArrays, void, GLsizei n, const GLuint *arrays)
 	MAKE_GL_CALL(glGetProgramiv, void, GLuint program, GLenum pname, GLint *params)
 	MAKE_GL_CALL(glGetProgramInfoLog, void, GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
 	MAKE_GL_CALL(glUseProgram, void, GLuint shader)
-	MAKE_GL_CALL(glDrawArrays, void, GLenum mode, GLint first, GLsizei count)
+	//MAKE_GL_CALL(glDrawArrays, void, GLenum mode, GLint first, GLsizei count)
 	MAKE_GL_CALL(glActiveTexture, void, GLenum texture)
-	MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
+	//MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
 	MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
 	MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
 
@@ -61,11 +62,12 @@ namespace {
 
 #define GET_GL_CALL(FUNCTION_NAME) \
 		const auto FUNCTION_NAME ## fptr = wglGetProcAddress(#FUNCTION_NAME); \
-		m ## FUNCTION_NAME = (FUNCTION_NAME ## FuncPtr)FUNCTION_NAME ## fptr;
+		m ## FUNCTION_NAME = (FUNCTION_NAME ## FuncPtr)FUNCTION_NAME ## fptr; \
+		if(FUNCTION_NAME ## fptr == nullptr) std::cout << "Fatal OpenGL Error: could not load function '" << "m" #FUNCTION_NAME "'" << std::endl;
 
 		//const auto fptr = wglGetProcAddress("glDrawBuffers");
 		//glDrawBuffersEXT = (glDrawBuffersEXTFuncPtr)fptr;
-		GET_GL_CALL(glDrawBuffersEXT)
+		//GET_GL_CALL(glDrawBuffersEXT)
 		GET_GL_CALL(glCreateShader)
 		GET_GL_CALL(glShaderSource)
 		GET_GL_CALL(glCompileShader)
@@ -76,15 +78,15 @@ namespace {
 		GET_GL_CALL(glGetUniformLocation)
 		GET_GL_CALL(glGenVertexArrays)
 		GET_GL_CALL(glBindVertexArray)
-		//GET_GL_CALL(glBindBuffer)
+		GET_GL_CALL(glBindBuffer)
 		GET_GL_CALL(glDeleteProgram)
 		GET_GL_CALL(glDeleteVertexArrays)
 		GET_GL_CALL(glGetProgramiv)
 		GET_GL_CALL(glGetProgramInfoLog)
 		GET_GL_CALL(glUseProgram)
-		GET_GL_CALL(glDrawArrays)
+		//GET_GL_CALL(glDrawArrays)
 		GET_GL_CALL(glActiveTexture)
-		GET_GL_CALL(glBindTexture)
+		//GET_GL_CALL(glBindTexture)
 		GET_GL_CALL(glUniform1i)
 		GET_GL_CALL(glUniform2i)
 	}
