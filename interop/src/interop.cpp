@@ -57,6 +57,10 @@ namespace {
 
 	void loadGlExtensions()
 	{
+		static bool hasInit = false;
+		if (hasInit) { return; }
+		hasInit = true;
+
 		Spout sp;
 		sp.OpenSpout(); // loads GL functions
 
@@ -114,10 +118,7 @@ static const void restorePreviousFbo(interop::glFramebuffer* fbo)
 
 // GL functions are presented by Spout!
 void interop::glFramebuffer::init(uint width, uint height) {
-
-	// im so sorry
-	if (!mglDrawBuffersEXT)
-		loadGlExtensions();
+	loadGlExtensions();
 
 	m_width = width;
 	m_height = height;
