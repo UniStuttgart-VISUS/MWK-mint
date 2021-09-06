@@ -282,8 +282,9 @@ int main(void)
 	cameraProjectionReceiver.start("tcp://localhost:12345", "CameraProjection");
 	auto cameraProjection = interop::CameraProjection();
 
-	interop::DataReceiver stereoCameraViewReceiver;
-	stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraViewRelative");
+	interop::DataReceiver stereoCameraViewReceiver_relative;
+	stereoCameraViewReceiver_relative.start("tcp://localhost:12345", "StereoCameraViewRelative");
+	//interop::DataReceiver stereoCameraViewReceiver;
 	//stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraView");
 	auto stereoCameraView = interop::StereoCameraView();
 
@@ -294,12 +295,12 @@ int main(void)
 		interop::vec4{2.0f*offset.x, 2.0f*offset.y, 2.0f*offset.z, 1.0f}
 	};
 
-	interop::DataReceiver bboxCorrectionReceiver;
-	bboxCorrectionReceiver.start("tcp://localhost:12345", "BBoxCorrection");
-	auto bboxCorrectionPose = interop::ModelPose(); // identity matrix or received from unity
+	//interop::DataReceiver bboxCorrectionReceiver;
+	//bboxCorrectionReceiver.start("tcp://localhost:12345", "BBoxCorrection");
+	//auto bboxCorrectionPose = interop::ModelPose(); // identity matrix or received from unity
 
 	interop::TexturePackageSender texturepackageSender;
-	texturepackageSender.init("/UnityInterop/DefaultSingleStereo", 400, 600);
+	texturepackageSender.init(default_name + "SingleStereo", 400, 600);
 
 	interop::CameraView defaultCameraView;
 	defaultCameraView.eyePos    = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
@@ -310,6 +311,8 @@ int main(void)
 	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
 
 	int width = 800, height = 600;
+	glfwGetFramebufferSize(window, &width, &height);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		ratio = width / (float) height;
@@ -336,10 +339,11 @@ int main(void)
 			const glm::mat4 model = getModelMatrix(modelPose);
 		}
 
-		if (received_data |= bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose)) {
-			glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
-		}
+		//if (received_data |= bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose)) {
+		//	glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
+		//}
 
+		bool hasNewWindowSize = false;
 		if (received_data |= cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection)) {
 			projection = glm::perspective(
 				cameraProjection.fieldOfViewY_rad,
@@ -347,7 +351,7 @@ int main(void)
 				cameraProjection.nearClipPlane,
 				cameraProjection.farClipPlane);
 
-			const bool hasNewWindowSize =
+			hasNewWindowSize =
 				(width != cameraProjection.pixelWidth)
 				|| (height != cameraProjection.pixelHeight);
 			if (hasNewWindowSize) {
@@ -356,17 +360,17 @@ int main(void)
 				glfwSetWindowSize(window, width, height);
 			}
 		}
-		//projection = toGlm(cameraConfig.projectionMatrix);
 
-		//cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig);
-		//cameraPoseReceiver.getData<interop::ModelPose>(cameraPose);
-		received_data |= stereoCameraViewReceiver.getData<interop::StereoCameraView>(stereoCameraView);
+		//if (received_data |= cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig)) {
+		//	projection = toGlm(cameraConfig.projectionMatrix);
+		//}
+		//received_data |= cameraPoseReceiver.getData<interop::ModelPose>(cameraPose);
+		received_data |= stereoCameraViewReceiver_relative.getData<interop::StereoCameraView>(stereoCameraView);
 
-		//glfwGetFramebufferSize(window, &width, &height);
 
 		const auto renderFromEye = [&](interop::CameraView& camView, interop::glFramebuffer& fbo, interop::TextureSender& ts)
 		{
-			if(width != fbo.m_width || height != fbo.m_height) {
+			if(hasNewWindowSize || width != fbo.m_width || height != fbo.m_height) {
 				fbo.resizeTexture(width, height);
 			}
 
@@ -428,16 +432,18 @@ int main(void)
 
 	modelPoseReceiver.stop();
 	cameraProjectionReceiver.stop();
+	stereoCameraViewReceiver_relative.stop();
+	bboxSender.stop();
 	//cameraConfigReceiver.stop();
 	//cameraPoseReceiver.stop();
-	stereoCameraViewReceiver.stop();
-	bboxSender.stop();
-	bboxCorrectionReceiver.stop();
+	//stereoCameraViewReceiver.stop();
+	//bboxCorrectionReceiver.stop();
 
 	fbo_left.destroy();
 	fbo_right.destroy();
 	ts_left.destroy();
 	ts_right.destroy();
+	texturepackageSender.destroy();
 
 	quad.destroy();
 	bbox.destroy();
