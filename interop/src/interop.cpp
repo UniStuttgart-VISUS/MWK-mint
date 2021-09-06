@@ -294,7 +294,7 @@ interop::TexturePackageSender::TexturePackageSender() {}
 interop::TexturePackageSender::~TexturePackageSender() {}
 
 void interop::TexturePackageSender::init(std::string name, uint width, uint height) {
-	m_name = name + "_hugetexture";
+	m_name = name;
 	m_width = width;
 	m_height = height;
 
@@ -337,7 +337,7 @@ void interop::TexturePackageSender::initGLresources() {
 R"(
 	#version 400
 
-	in int gl_VertexID;
+	//in int gl_VertexID;
 
 	const vec4 unitQuad[4] =
 	vec4[](
@@ -386,10 +386,16 @@ R"(
                 : texelFetch(right_depth, lookup_coord, 0).r;
 
 			uint deph_uint = floatBitsToUint(depth); // version 330
-			vec4 depth_rgba8 = unpackUnorm4x8(deph_uint); // version 400
+			//vec4 depth_rgba8 = unpackUnorm4x8(deph_uint); // version 400
+			vec4 depth_rgba8 = vec4(
+				float((deph_uint >> 0 ) & 0x000000FF),           // r: 0..7
+				float((deph_uint >> 8 ) & 0x000000FF),           // g: 8..15
+				float((deph_uint >> 16) & 0x000000FF),           // b: 16..23
+				float((deph_uint >> 24) & 0x000000FF) ) / 255.0; // a: 24..31
 
 			result = depth_rgba8;
 		}
+		
 
 		FragColor = result;
 		//FragColor = vec4(mod(gl_FragCoord.xy, texture_size.xy)/(texture_size.xy), 0.0f, 1.0f);
@@ -446,7 +452,7 @@ void interop::TexturePackageSender::blitTextures(const uint color_left_texture, 
 
 	const auto bindTexture = [&](const uint texture_uniform_location, const uint texture_handle, const uint binding_point) {
 		mglActiveTexture(GL_TEXTURE0 + binding_point); // activate the texture unit first before binding texture
-		mglBindTexture(GL_TEXTURE_2D, texture_handle);
+		glBindTexture(GL_TEXTURE_2D, texture_handle);
 		mglUniform1i(texture_uniform_location, binding_point); // set it manually
 	};
 
@@ -456,7 +462,7 @@ void interop::TexturePackageSender::blitTextures(const uint color_left_texture, 
 	bindTexture(m_uniform_locations[3], color_right_texture, 2);
 	bindTexture(m_uniform_locations[4], depth_right_texture, 3);
 
-	mglDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	mglBindVertexArray(0);
 	m_hugeFbo.unbind();
