@@ -41,17 +41,19 @@ set(BUILD_TESTING OFF CACHE INTERNAL "")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 add_subdirectory(external/json)
 
-add_library(interop
+add_library(interop STATIC
     src/interop.cpp
     include/interop.hpp
 )
 	
 # Define headers for this library. PUBLIC headers are used for
 # compiling the library, and will be added to consumers' build paths.
-target_include_directories(interop PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+target_include_directories(interop
+  PUBLIC
     $<INSTALL_INTERFACE:include>
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # If we have compiler requirements for this library, list them here
 target_compile_features(interop
@@ -65,19 +67,21 @@ target_link_libraries(interop
 		libzmq-static
 		cppzmq-static
 		nlohmann_json::nlohmann_json
-		#-OSC
 )
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 include(GNUInstallDirs)
-install(TARGETS interop #EXPORT MyLibraryConfig
-	EXPORT ${PROJECT_NAME}-targets
+install(TARGETS interop Spout2 #EXPORT MyLibraryConfig
+	EXPORT interop-targets
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 	PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(EXPORT interop-targets DESTINATION ${PROJECT_NAME})
+
 
 # This makes the project importable from the install directory
 # Put config file in per-project dir (name MUST match), can also

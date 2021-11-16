@@ -43,7 +43,7 @@ set(GLM_TEST_ENABLE OFF CACHE BOOL "" FORCE)
 set(GLM_TEST_ENABLE_CXX_14 ON CACHE BOOL "" FORCE)
 add_subdirectory(external/glm/)
 
-add_subdirectory(../interop interop)
+#add_library(interop STATIC IMPORTED ../interop)
 
 set(LINK_LIBS_EXTERNAL interop glad glm glfw ${OPENGL_glu_LIBRARY})
 set(INCLUDE_LIBS_EXTERNAL ${OPENGL_INCLUDE_DIR})
