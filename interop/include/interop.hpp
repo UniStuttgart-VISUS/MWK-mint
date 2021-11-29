@@ -237,6 +237,12 @@ make_dataGet(StereoCameraView)
 make_dataGet(CameraView)
 make_dataGet(mat4)
 make_dataGet(vec4)
+
+make_dataGet(bool)
+make_dataGet(int)
+make_dataGet(unsigned int)
+make_dataGet(float)
+make_dataGet(double)
 #undef make_dataGet
 
 

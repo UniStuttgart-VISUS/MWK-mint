@@ -825,6 +825,28 @@ make_dataGet(interop::CameraView)
 make_dataGet(interop::mat4)
 make_dataGet(interop::vec4)
 
+#define make_scalar_get(DataTypeName) \
+template <> \
+bool interop::DataReceiver::getData<DataTypeName>(DataTypeName& v) { \
+	if(this->getDataCopy()) \
+	{ \
+		auto& byteData = m_msgDataCopy; \
+		if(byteData.size()) { \
+			json j = json::parse(byteData); \
+			v = j["value"]; \
+			return true; \
+		} \
+	} \
+ \
+	return false; \
+}
+
+make_scalar_get(bool)
+make_scalar_get(int)
+make_scalar_get(unsigned int)
+make_scalar_get(float)
+make_scalar_get(double)
+
 
 #define make_sendData(DataTypeName) \
 template <> \
