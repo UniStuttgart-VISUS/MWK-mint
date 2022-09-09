@@ -25,44 +25,48 @@ namespace {
 	//#define glDrawBuffersEXT my_glDrawBuffersEXT
 	typedef char GLchar;
 	typedef int GLint;
-	#define GL_FRAGMENT_SHADER                0x8B30
-	#define GL_VERTEX_SHADER                  0x8B31
-	#define GL_ARRAY_BUFFER                   0x8892
-	#define GL_LINK_STATUS                    0x8B82
-	#define GL_TEXTURE0                       0x84C0
-	#define GL_ACTIVE_TEXTURE                 0x84E0
-	#define GL_DEPTH_COMPONENT32              0x81A7
+#define GL_FRAGMENT_SHADER                0x8B30
+#define GL_VERTEX_SHADER                  0x8B31
+#define GL_ARRAY_BUFFER                   0x8892
+#define GL_LINK_STATUS                    0x8B82
+#define GL_TEXTURE0                       0x84C0
+#define GL_ACTIVE_TEXTURE                 0x84E0
+#define GL_DEPTH_COMPONENT32              0x81A7
 	//MAKE_GL_CALL(glDrawBuffersEXT, void, GLsizei n, const GLenum *bufs)
 	MAKE_GL_CALL(glCreateShader, GLuint, GLenum shaderType)
-	MAKE_GL_CALL(glShaderSource, void, GLuint shader, GLsizei count, const GLchar **string, const GLint *length)
-	MAKE_GL_CALL(glCompileShader, void, GLuint shader)
-	MAKE_GL_CALL(glCreateProgram, GLuint, void)
-	MAKE_GL_CALL(glAttachShader, void, GLuint program, GLuint shader)
-	MAKE_GL_CALL(glLinkProgram, void, GLuint program)
-	MAKE_GL_CALL(glDeleteShader, void, GLuint shader)
-	MAKE_GL_CALL(glGetUniformLocation, GLint, GLuint program, const GLchar *name)
-	MAKE_GL_CALL(glGenVertexArrays, void, GLsizei n, GLuint *arrays)
-	MAKE_GL_CALL(glBindVertexArray, void, GLuint array)
-	MAKE_GL_CALL(glBindBuffer, void, GLenum target, GLuint buffer)
-	MAKE_GL_CALL(glDeleteProgram, void, GLuint program)
-	MAKE_GL_CALL(glDeleteVertexArrays, void, GLsizei n, const GLuint *arrays)
-	MAKE_GL_CALL(glGetProgramiv, void, GLuint program, GLenum pname, GLint *params)
-	MAKE_GL_CALL(glGetProgramInfoLog, void, GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
-	MAKE_GL_CALL(glUseProgram, void, GLuint shader)
-	//MAKE_GL_CALL(glDrawArrays, void, GLenum mode, GLint first, GLsizei count)
-	MAKE_GL_CALL(glActiveTexture, void, GLenum texture)
-	//MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
-	MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
-	MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
+		MAKE_GL_CALL(glShaderSource, void, GLuint shader, GLsizei count, const GLchar** string, const GLint* length)
+		MAKE_GL_CALL(glCompileShader, void, GLuint shader)
+		MAKE_GL_CALL(glCreateProgram, GLuint, void)
+		MAKE_GL_CALL(glAttachShader, void, GLuint program, GLuint shader)
+		MAKE_GL_CALL(glLinkProgram, void, GLuint program)
+		MAKE_GL_CALL(glDeleteShader, void, GLuint shader)
+		MAKE_GL_CALL(glGetUniformLocation, GLint, GLuint program, const GLchar* name)
+		MAKE_GL_CALL(glGenVertexArrays, void, GLsizei n, GLuint* arrays)
+		MAKE_GL_CALL(glBindVertexArray, void, GLuint array)
+		MAKE_GL_CALL(glBindBuffer, void, GLenum target, GLuint buffer)
+		MAKE_GL_CALL(glDeleteProgram, void, GLuint program)
+		MAKE_GL_CALL(glDeleteVertexArrays, void, GLsizei n, const GLuint* arrays)
+		MAKE_GL_CALL(glGetProgramiv, void, GLuint program, GLenum pname, GLint* params)
+		MAKE_GL_CALL(glGetProgramInfoLog, void, GLuint program, GLsizei maxLength, GLsizei* length, GLchar* infoLog)
+		MAKE_GL_CALL(glUseProgram, void, GLuint shader)
+		//MAKE_GL_CALL(glDrawArrays, void, GLenum mode, GLint first, GLsizei count)
+		MAKE_GL_CALL(glActiveTexture, void, GLenum texture)
+		//MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
+		MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
+		MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
 
-	void loadGlExtensions()
+		MAKE_GL_CALL(glGenFramebuffersEXT, void, GLsizei n, GLuint* ids)
+		MAKE_GL_CALL(glBindFramebufferEXT, void, GLenum target, GLuint framebuffer)
+		MAKE_GL_CALL(glFramebufferTexture2DEXT, void, GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
+		MAKE_GL_CALL(glCheckFramebufferStatusEXT, GLenum, GLenum target)
+		MAKE_GL_CALL(glDeleteFramebuffersEXT, void, GLsizei n, GLuint* framebuffers)
+		MAKE_GL_CALL(glBlitFramebufferEXT, void, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+
+		void loadGlExtensions()
 	{
 		static bool hasInit = false;
 		if (hasInit) { return; }
 		hasInit = true;
-
-		Spout sp;
-		sp.OpenSpout(); // loads GL functions
 
 #define GET_GL_CALL(FUNCTION_NAME) \
 		const auto FUNCTION_NAME ## fptr = wglGetProcAddress(#FUNCTION_NAME); \
@@ -73,29 +77,36 @@ namespace {
 		//glDrawBuffersEXT = (glDrawBuffersEXTFuncPtr)fptr;
 		//GET_GL_CALL(glDrawBuffersEXT)
 		GET_GL_CALL(glCreateShader)
-		GET_GL_CALL(glShaderSource)
-		GET_GL_CALL(glCompileShader)
-		GET_GL_CALL(glCreateProgram)
-		GET_GL_CALL(glAttachShader)
-		GET_GL_CALL(glLinkProgram)
-		GET_GL_CALL(glDeleteShader)
-		GET_GL_CALL(glGetUniformLocation)
-		GET_GL_CALL(glGenVertexArrays)
-		GET_GL_CALL(glBindVertexArray)
-		GET_GL_CALL(glBindBuffer)
-		GET_GL_CALL(glDeleteProgram)
-		GET_GL_CALL(glDeleteVertexArrays)
-		GET_GL_CALL(glGetProgramiv)
-		GET_GL_CALL(glGetProgramInfoLog)
-		GET_GL_CALL(glUseProgram)
-		//GET_GL_CALL(glDrawArrays)
-		GET_GL_CALL(glActiveTexture)
-		//GET_GL_CALL(glBindTexture)
-		GET_GL_CALL(glUniform1i)
-		GET_GL_CALL(glUniform2i)
+			GET_GL_CALL(glShaderSource)
+			GET_GL_CALL(glCompileShader)
+			GET_GL_CALL(glCreateProgram)
+			GET_GL_CALL(glAttachShader)
+			GET_GL_CALL(glLinkProgram)
+			GET_GL_CALL(glDeleteShader)
+			GET_GL_CALL(glGetUniformLocation)
+			GET_GL_CALL(glGenVertexArrays)
+			GET_GL_CALL(glBindVertexArray)
+			GET_GL_CALL(glBindBuffer)
+			GET_GL_CALL(glDeleteProgram)
+			GET_GL_CALL(glDeleteVertexArrays)
+			GET_GL_CALL(glGetProgramiv)
+			GET_GL_CALL(glGetProgramInfoLog)
+			GET_GL_CALL(glUseProgram)
+			//GET_GL_CALL(glDrawArrays)
+			GET_GL_CALL(glActiveTexture)
+			//GET_GL_CALL(glBindTexture)
+			GET_GL_CALL(glUniform1i)
+			GET_GL_CALL(glUniform2i)
+
+			GET_GL_CALL(glGenFramebuffersEXT)
+			GET_GL_CALL(glBindFramebufferEXT)
+			GET_GL_CALL(glFramebufferTexture2DEXT)
+			GET_GL_CALL(glCheckFramebufferStatusEXT)
+			GET_GL_CALL(glDeleteFramebuffersEXT)
+			GET_GL_CALL(glBlitFramebufferEXT)
 	}
 
-	static zmq::context_t g_zmqContext{1};
+	static zmq::context_t g_zmqContext{ 1 };
 }
 
 static const void savePreviousFbo(interop::glFramebuffer* fbo)
@@ -106,13 +117,13 @@ static const void savePreviousFbo(interop::glFramebuffer* fbo)
 };
 static const void restorePreviousFbo(interop::glFramebuffer* fbo)
 {
-	glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, fbo->m_previousFramebuffer[0]);
-	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, fbo->m_previousFramebuffer[1]);
+	mglBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, fbo->m_previousFramebuffer[0]);
+	mglBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, fbo->m_previousFramebuffer[1]);
 	glViewport(fbo->m_previousViewport[0], fbo->m_previousViewport[1], fbo->m_previousViewport[2], fbo->m_previousViewport[3]);
 
 	fbo->m_previousFramebuffer[0] = 0;
 	fbo->m_previousFramebuffer[1] = 0;
-	for(int i = 0; i < 4; i++)
+	for (int i = 0; i < 4; i++)
 		fbo->m_previousViewport[i] = 0;
 }
 
@@ -124,16 +135,16 @@ void interop::glFramebuffer::init(uint width, uint height) {
 	m_height = height;
 
 	if (!m_glFbo)
-		glGenFramebuffersEXT(1, &m_glFbo);
+		mglGenFramebuffersEXT(1, &m_glFbo);
 
-	if(!m_glTextureRGBA8)
+	if (!m_glTextureRGBA8)
 		glGenTextures(1, &m_glTextureRGBA8);
 	glBindTexture(GL_TEXTURE_2D, m_glTextureRGBA8);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	if(!m_glTextureDepth)
+	if (!m_glTextureDepth)
 		glGenTextures(1, &m_glTextureDepth);
 	glBindTexture(GL_TEXTURE_2D, m_glTextureDepth);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, m_width, m_height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
@@ -143,11 +154,11 @@ void interop::glFramebuffer::init(uint width, uint height) {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	savePreviousFbo(this);
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_glFbo);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_glTextureRGBA8, 0);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, m_glTextureDepth, 0);
+	mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_glFbo);
+	mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_glTextureRGBA8, 0);
+	mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, m_glTextureDepth, 0);
 
-	GLenum e = glCheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER_EXT);
+	GLenum e = mglCheckFramebufferStatusEXT(GL_DRAW_FRAMEBUFFER_EXT);
 	if (e != GL_FRAMEBUFFER_COMPLETE_EXT)
 		printf("There is a problem with the FBO\n");
 
@@ -155,13 +166,13 @@ void interop::glFramebuffer::init(uint width, uint height) {
 }
 
 void interop::glFramebuffer::destroy() {
-	if(m_glFbo)
-		glDeleteFramebuffersEXT(1, &m_glFbo);
+	if (m_glFbo)
+		mglDeleteFramebuffersEXT(1, &m_glFbo);
 
-	if(m_glTextureRGBA8)
+	if (m_glTextureRGBA8)
 		glDeleteTextures(1, &m_glTextureRGBA8);
 
-	if(m_glTextureDepth)
+	if (m_glTextureDepth)
 		glDeleteTextures(1, &m_glTextureDepth);
 
 	m_glFbo = 0;
@@ -171,7 +182,7 @@ void interop::glFramebuffer::destroy() {
 	m_height = 0;
 }
 
-void interop::glFramebuffer::resizeTexture(uint width, uint height) { 
+void interop::glFramebuffer::resizeTexture(uint width, uint height) {
 	if (width == 0 || height == 0)
 		return;
 
@@ -183,7 +194,7 @@ void interop::glFramebuffer::resizeTexture(uint width, uint height) {
 
 void interop::glFramebuffer::bind() {
 	savePreviousFbo(this);
-	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_glFbo);
+	mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_glFbo);
 	glDrawBuffer(GL_COLOR_ATTACHMENT0_EXT);
 	glViewport(0, 0, m_width, m_height);
 }
@@ -195,10 +206,10 @@ void interop::glFramebuffer::unbind() {
 void interop::glFramebuffer::blitTexture() {
 	savePreviousFbo(this);
 
-	glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_previousFramebuffer[0]);
-	glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_glFbo);
+	mglBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_previousFramebuffer[0]);
+	mglBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_glFbo);
 
-	glBlitFramebufferEXT(
+	mglBlitFramebufferEXT(
 		0, 0,
 		m_width, m_height,
 		m_previousViewport[0],
@@ -223,7 +234,7 @@ interop::TextureSender::~TextureSender() {
 }
 
 void interop::TextureSender::init(std::string name, uint width, uint height) {
-	if (name.size() == 0 ||name.size() > 256)
+	if (name.size() == 0 || name.size() > 256)
 		return;
 
 	if (width == 0 || height == 0)
@@ -301,7 +312,7 @@ void interop::TexturePackageSender::init(std::string name, uint width, uint heig
 	m_hugeFbo.init();
 	m_hugeTextureSender.init(m_name);
 	this->initGLresources();
-	
+
 	this->makeHugeTexture(m_width, m_height);
 }
 
@@ -334,7 +345,7 @@ void interop::TexturePackageSender::sendTexturePackage(const uint color_left, co
 
 void interop::TexturePackageSender::initGLresources() {
 	const char* vertex_shader_source =
-R"(
+		R"(
 	#version 400
 
 	//in int gl_VertexID;
@@ -354,7 +365,7 @@ R"(
 )";
 
 	const char* fragment_shader_source =
-R"(
+		R"(
 	#version 400
 
 	in vec4 gl_FragCoord;
@@ -489,7 +500,7 @@ void interop::DataSender::start(const std::string& networkAddress, std::string c
 		//socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
 		socket.bind(networkAddress);
 	}
-	catch (std::exception& e){
+	catch (std::exception& e) {
 		std::cout << "InteropLib: binding zmq socket failed: " << e.what() << std::endl;
 		return;
 	}
@@ -505,9 +516,9 @@ bool interop::DataSender::sendData(std::string const& v) {
 bool interop::DataSender::sendData(std::string const& filterName, std::string const& v) {
 	auto& socket = *m_socket;
 
-	zmq::message_t address_msg{filterName.data(), filterName.size()};
-	zmq::message_t data_msg{v.data(), v.size()};
-	
+	zmq::message_t address_msg{ filterName.data(), filterName.size() };
+	zmq::message_t data_msg{ v.data(), v.size() };
+
 	//std::cout << "ZMQ Sender: " << filterName << " / " << v << std::endl;
 	bool sendingResult = false;
 	const auto print = [](bool b) -> std::string { return (b ? ("true") : ("false"));  };
@@ -518,7 +529,7 @@ bool interop::DataSender::sendData(std::string const& filterName, std::string co
 		//std::cout << "ZMQ Sender: adr=" << print(adr) << ", msg=" << print(msg) << ", " << v << std::endl;
 		sendingResult = adr && msg;
 	}
-	catch (std::exception& e){
+	catch (std::exception& e) {
 		std::cout << "InteropLib: ZMQ sending failed: " << e.what() << std::endl;
 	}
 	return sendingResult;
@@ -540,7 +551,7 @@ namespace {
 		std::string& msgData = dr->m_msgData;
 		std::string filter = filterName;
 
-		zmq::socket_t socket{g_zmqContext, ZMQ_SUB};
+		zmq::socket_t socket{ g_zmqContext, ZMQ_SUB };
 
 		try {
 			//std::string identity{"InteropLib"};
@@ -550,7 +561,7 @@ namespace {
 			socket.setsockopt(ZMQ_RCVTIMEO, 100 /*ms*/); // timeout after not receiving messages for tenth of a second
 			socket.connect(networkAddress);
 		}
-		catch (std::exception& e){
+		catch (std::exception& e) {
 			std::cout << "InteropLib: connecting zmq socket failed: " << e.what() << std::endl;
 			return;
 		}
@@ -588,7 +599,7 @@ namespace {
 			}
 
 			// store message content for user to retrieve+parse
-			std::lock_guard<std::mutex> lock{mutex};
+			std::lock_guard<std::mutex> lock{ mutex };
 			msgData.assign(static_cast<char*>(content_msg.data()), content_msg.size());
 			newDataFlag.clear(std::memory_order_release); // Sets false. All writes in the current thread are visible in other threads that acquire the same atomic variable
 		}
@@ -616,8 +627,8 @@ void interop::DataReceiver::stop() {
 }
 
 bool interop::DataReceiver::getDataCopy() {
-	if (! m_newDataFlag.test_and_set(std::memory_order_acquire)) { // Sets true, returns previous value. All writes in other threads that release the same atomic variable are visible in the current thread.
-		std::lock_guard<std::mutex> lock{m_mutex};
+	if (!m_newDataFlag.test_and_set(std::memory_order_acquire)) { // Sets true, returns previous value. All writes in other threads that release the same atomic variable are visible in the current thread.
+		std::lock_guard<std::mutex> lock{ m_mutex };
 		m_msgDataCopy.assign(m_msgData);
 		return true;
 	}
@@ -674,7 +685,7 @@ namespace interop {
 		j = json{
 			{"e00" , v.data[0].x}, {"e01" , v.data[1].x}, {"e02" , v.data[2].x}, {"e03" , v.data[3].x},
 			{"e10" , v.data[0].y}, {"e11" , v.data[1].y}, {"e12" , v.data[2].y}, {"e13" , v.data[3].y},
-			{"e20" , v.data[0].z}, {"e21" , v.data[1].z}, {"e22" , v.data[2].z}, {"e23" , v.data[3].z}, 
+			{"e20" , v.data[0].z}, {"e21" , v.data[1].z}, {"e22" , v.data[2].z}, {"e23" , v.data[3].z},
 			{"e30" , v.data[0].w}, {"e31" , v.data[1].w}, {"e32" , v.data[2].w}, {"e33" , v.data[3].w}
 		};
 	}
@@ -682,7 +693,7 @@ namespace interop {
 	void from_json(const json& j, mat4& v) {
 		readMat("e00", v.data[0].x); readMat("e01", v.data[1].x); readMat("e02", v.data[2].x); readMat("e03", v.data[3].x);
 		readMat("e10", v.data[0].y); readMat("e11", v.data[1].y); readMat("e12", v.data[2].y); readMat("e13", v.data[3].y);
-		readMat("e20", v.data[0].z); readMat("e21", v.data[1].z); readMat("e22", v.data[2].z); readMat("e23", v.data[3].z); 
+		readMat("e20", v.data[0].z); readMat("e21", v.data[1].z); readMat("e22", v.data[2].z); readMat("e23", v.data[3].z);
 		readMat("e30", v.data[0].w); readMat("e31", v.data[1].w); readMat("e32", v.data[2].w); readMat("e33", v.data[3].w);
 	}
 
@@ -905,4 +916,3 @@ interop::vec4 interop::operator*(interop::vec4 const& v, const float s) {
 interop::vec4 interop::operator*(const float s, const interop::vec4 v) {
 	return v * s;
 }
-
