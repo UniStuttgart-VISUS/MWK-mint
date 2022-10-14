@@ -53,8 +53,8 @@ using uint = unsigned int;
 
 		void init(std::string name, const uint width = 1, const uint height = 1);
 		void destroy();
-		void sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height);
-		void sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height);
+		void sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height, const uint meta_data = 0);
+		void sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height, const uint meta_data = 0);
 
 		std::string m_name = "";
 		uint m_width = 0;
@@ -69,7 +69,9 @@ using uint = unsigned int;
 		uint m_uniform_locations[5] = { 0 };
 		void initGLresources();
 		void destroyGLresources();
-		void blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height);
+		void blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height, const uint meta_data);
+
+		static_assert(sizeof(uint) == 4, "unigned int expected to be 4 bytes");
 	};
 
 	struct DataSender {

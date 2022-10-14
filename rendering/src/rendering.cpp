@@ -408,9 +408,11 @@ int main(void)
 		};
 
 		static bool received_any_data = false;
+		interop::uint frame_id = 0;
 		if (received_any_data |= received_data) {
 			renderFromEye(stereoCameraView.leftEyeView, fbo_left, ts_left);
 			renderFromEye(stereoCameraView.rightEyeView, fbo_right, ts_right);
+			frame_id = glm::floatBitsToUint(stereoCameraView.leftEyeView.eyePos.w);
 		}
 		else {
 			auto leftView{ defaultCameraView };
@@ -424,7 +426,7 @@ int main(void)
 			renderFromEye(rightView, fbo_right, ts_right);
 		}
 
-		texturepackageSender.sendTexturePackage(fbo_left, fbo_right, width, height);
+		texturepackageSender.sendTexturePackage(fbo_left, fbo_right, width, height, frame_id);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

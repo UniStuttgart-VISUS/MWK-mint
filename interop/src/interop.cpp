@@ -330,15 +330,15 @@ void interop::TexturePackageSender::makeHugeTexture(const uint originalWidth, co
 	m_hugeTextureSender.resizeTexture(m_hugeWidth, m_hugeHeight); // resizes sender texture
 }
 
-void interop::TexturePackageSender::sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height) {
-	this->sendTexturePackage(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8, fb_left.m_glTextureDepth, fb_right.m_glTextureDepth, width, height);
+void interop::TexturePackageSender::sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height, const uint meta_data) {
+	this->sendTexturePackage(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8, fb_left.m_glTextureDepth, fb_right.m_glTextureDepth, width, height, meta_data);
 }
 
-void interop::TexturePackageSender::sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height) {
+void interop::TexturePackageSender::sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height, const uint meta_data) {
 	if (m_width != width || m_height != height)
 		this->makeHugeTexture(width, height);
 
-	this->blitTextures(color_left, color_right, depth_left, depth_right, width, height);
+	this->blitTextures(color_left, color_right, depth_left, depth_right, width, height, meta_data);
 
 	m_hugeTextureSender.sendTexture(m_hugeFbo);
 }
@@ -375,6 +375,7 @@ void interop::TexturePackageSender::initGLresources() {
 	uniform sampler2D left_depth;
 	uniform sampler2D right_depth;
 	uniform ivec2 texture_size;
+	uniform int meta_data;
 
 	out vec4 FragColor;
 
@@ -382,6 +383,11 @@ void interop::TexturePackageSender::initGLresources() {
 	{
 		vec4 result = vec4(0.0f);
 		ivec2 screen_coords = ivec2(gl_FragCoord.xy);
+
+		if(screen_coords == ivec2(0,0)) {
+			FragColor = unpackUnorm4x8(uint(meta_data));
+			return;
+		}
 
 		bool side = bool(screen_coords.x < texture_size.x); // true => left side, false => right side
 		bool color_or_depth = bool(screen_coords.y < texture_size.y); // true => color, false => depth
@@ -442,6 +448,7 @@ void interop::TexturePackageSender::initGLresources() {
 	m_uniform_locations[2] = mglGetUniformLocation(m_shader, "left_depth");
 	m_uniform_locations[3] = mglGetUniformLocation(m_shader, "right_color");
 	m_uniform_locations[4] = mglGetUniformLocation(m_shader, "right_depth");
+	m_uniform_locations[5] = mglGetUniformLocation(m_shader, "meta_data");
 
 	mglGenVertexArrays(1, &m_vao);
 }
@@ -451,7 +458,7 @@ void interop::TexturePackageSender::destroyGLresources() {
 	mglDeleteVertexArrays(1, &m_vao);
 }
 
-void interop::TexturePackageSender::blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height) {
+void interop::TexturePackageSender::blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height, const uint meta_data) {
 	GLint previous_active_texture;
 	glGetIntegerv(GL_ACTIVE_TEXTURE, &previous_active_texture);
 
@@ -472,6 +479,7 @@ void interop::TexturePackageSender::blitTextures(const uint color_left_texture, 
 	bindTexture(m_uniform_locations[2], depth_left_texture, 1);
 	bindTexture(m_uniform_locations[3], color_right_texture, 2);
 	bindTexture(m_uniform_locations[4], depth_right_texture, 3);
+	mglUniform1i(m_uniform_locations[5], static_cast<int>(meta_data));
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
