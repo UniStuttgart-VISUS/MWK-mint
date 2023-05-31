@@ -8,6 +8,15 @@ project(mint VERSION 1.0
 	
 # include libraries?
 
+option(MINT_BUILD_INTEROP "" ON)
+option(MINT_BUILD_RENDERING "" ON)
+
 # add sub-projects
-add_subdirectory(interop)
-add_subdirectory(rendering)
+
+if(MINT_BUILD_INTEROP)
+	add_subdirectory(interop)
+endif()
+
+if(MINT_BUILD_RENDERING)
+	add_subdirectory(rendering)
+endif()
