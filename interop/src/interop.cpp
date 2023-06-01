@@ -2,6 +2,7 @@
 
 #include <zmq.hpp>
 #include "SpoutSender.h"
+#include "SpoutReceiver.h"
 #include <nlohmann/json.hpp>
 
 #include <iostream>
@@ -54,6 +55,7 @@ namespace {
 		//MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
 		MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
 		MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
+		MAKE_GL_CALL(glCopyTextureSubImage2D, void, GLuint, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei)
 
 		MAKE_GL_CALL(glGenFramebuffersEXT, void, GLsizei n, GLuint* ids)
 		MAKE_GL_CALL(glBindFramebufferEXT, void, GLenum target, GLuint framebuffer)
@@ -97,6 +99,7 @@ namespace {
 			//GET_GL_CALL(glBindTexture)
 			GET_GL_CALL(glUniform1i)
 			GET_GL_CALL(glUniform2i)
+			GET_GL_CALL(glCopyTextureSubImage2D)
 
 			GET_GL_CALL(glGenFramebuffersEXT)
 			GET_GL_CALL(glBindFramebufferEXT)
@@ -299,6 +302,68 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width, uint he
 void interop::TextureSender::sendTexture(glFramebuffer& fb) {
 	this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
 }
+
+
+#define m_spout (static_cast<SpoutReceiver*>(m_receiver.get()))
+interop::TextureReceiver::TextureReceiver() {
+    m_receiver = std::make_shared<SpoutReceiver>();
+}
+
+interop::TextureReceiver::~TextureReceiver() {
+    m_receiver = nullptr;
+}
+
+void interop::TextureReceiver::init(std::string name) {
+    m_name = name;
+
+    m_spout->SetCPUmode(false);
+    m_spout->SetMemoryShareMode(false);
+    m_spout->SetDX9(false);
+    bool active = false;
+    m_spout->CreateReceiver(const_cast<char*>(m_name.c_str()), m_width, m_height, active);
+}
+
+void interop::TextureReceiver::destroy() {
+    if (!m_receiver)
+        return;
+
+    m_spout->ReleaseReceiver();
+}
+
+void interop::TextureReceiver::receiveTexture() {
+    uint width = 0, height = 0;
+    m_spout->ReceiveTexture(const_cast<char*>(m_name.c_str()), width, height);
+    m_spout->BindSharedTexture();
+
+    int shared_texture_id = 0;
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &shared_texture_id);
+
+    if (!m_texture_handle)
+        glGenTextures(1, &m_texture_handle);
+
+    if (m_width != width || m_height != height) {
+        m_width = width;
+        m_height = height;
+        glBindTexture(GL_TEXTURE_2D, m_texture_handle);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    if (!m_fbo)
+        mglGenFramebuffersEXT(1, &m_fbo);
+
+    mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+    mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, shared_texture_id, 0);
+
+    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
+    mglCopyTextureSubImage2D(m_texture_handle, 0, 0, 0, 0, 0, width, height);
+
+    mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+    m_spout->UnBindSharedTexture();
+}
+#undef m_spout
 
 
 interop::TexturePackageSender::TexturePackageSender() {}

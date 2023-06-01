@@ -45,6 +45,22 @@ using uint = unsigned int;
 		std::shared_ptr<void> m_sender;
 	};
 
+struct TextureReceiver {
+    TextureReceiver();
+    ~TextureReceiver();
+
+    void init(std::string name);
+    void destroy();
+    void receiveTexture();
+
+    std::string m_name = "";
+    uint m_width = 0;
+    uint m_height = 0;
+    std::shared_ptr<void> m_receiver;
+    uint m_texture_handle = 0;
+    uint m_fbo = 0;
+};
+
 	// packs color and depth textures into one huge texture before sharing texture data with other processes
 	// input widht/height are for the original size of the input textures
 	struct TexturePackageSender {
