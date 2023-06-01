@@ -11,6 +11,8 @@ namespace interop {
 
 using uint = unsigned int;
 
+	void init();
+
 	struct glFramebuffer {
 		void init(uint width = 1, uint height = 1);
 		void destroy();

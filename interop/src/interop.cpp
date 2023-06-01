@@ -130,6 +130,10 @@ static const void restorePreviousFbo(interop::glFramebuffer* fbo)
 		fbo->m_previousViewport[i] = 0;
 }
 
+void interop::init() {
+	loadGlExtensions();
+}
+
 // GL functions are presented by Spout!
 void interop::glFramebuffer::init(uint width, uint height) {
 	loadGlExtensions();
