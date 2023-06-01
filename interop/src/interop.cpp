@@ -55,7 +55,7 @@ namespace {
 		//MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
 		MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
 		MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
-		MAKE_GL_CALL(glCopyTextureSubImage2D, void, GLuint, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei)
+		MAKE_GL_CALL(glCopyTexSubImage2DEXT, void, GLenum, GLint, GLint, GLint, GLint, GLint, GLsizei, GLsizei)
 
 		MAKE_GL_CALL(glGenFramebuffersEXT, void, GLsizei n, GLuint* ids)
 		MAKE_GL_CALL(glBindFramebufferEXT, void, GLenum target, GLuint framebuffer)
@@ -99,7 +99,7 @@ namespace {
 			//GET_GL_CALL(glBindTexture)
 			GET_GL_CALL(glUniform1i)
 			GET_GL_CALL(glUniform2i)
-			GET_GL_CALL(glCopyTextureSubImage2D)
+			GET_GL_CALL(glCopyTexSubImage2DEXT)
 
 			GET_GL_CALL(glGenFramebuffersEXT)
 			GET_GL_CALL(glBindFramebufferEXT)
@@ -324,7 +324,8 @@ void interop::TextureReceiver::init(std::string name) {
     m_spout->SetMemoryShareMode(false);
     m_spout->SetDX9(false);
     bool active = false;
-    m_spout->CreateReceiver(const_cast<char*>(m_name.c_str()), m_width, m_height, active);
+	unsigned int w, h;
+    m_spout->CreateReceiver(const_cast<char*>(m_name.c_str()), w, h, active);
 }
 
 void interop::TextureReceiver::destroy() {
@@ -336,35 +337,52 @@ void interop::TextureReceiver::destroy() {
 
 void interop::TextureReceiver::receiveTexture() {
     uint width = 0, height = 0;
-    m_spout->ReceiveTexture(const_cast<char*>(m_name.c_str()), width, height);
-    m_spout->BindSharedTexture();
+
+    if(!m_spout->ReceiveTexture(const_cast<char*>(m_name.c_str()), width, height))
+		return;
+
+    if(!m_spout->BindSharedTexture())
+		return;
 
     int shared_texture_id = 0;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &shared_texture_id);
 
-    if (!m_texture_handle)
-        glGenTextures(1, &m_texture_handle);
-
-    if (m_width != width || m_height != height) {
-        m_width = width;
-        m_height = height;
+	const auto make_texture = [&](){
         glBindTexture(GL_TEXTURE_2D, m_texture_handle);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glBindTexture(GL_TEXTURE_2D, 0);
+	};
+
+    if (!m_texture_handle) {
+        glGenTextures(1, &m_texture_handle);
+		make_texture();
+	}
+
+    if (m_width != width || m_height != height) {
+        m_width = width;
+        m_height = height;
+		make_texture();
     }
 
-    if (!m_fbo)
+    if (!m_fbo) {
         mglGenFramebuffersEXT(1, &m_fbo);
-
+	}
     mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
     mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, shared_texture_id, 0);
 
+	GLenum e = mglCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+	if (e != GL_FRAMEBUFFER_COMPLETE_EXT)
+		printf("There is a problem with the FBO\n");
+
     glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-    mglCopyTextureSubImage2D(m_texture_handle, 0, 0, 0, 0, 0, width, height);
+	glBindTexture(GL_TEXTURE_2D, m_texture_handle);
+
+    mglCopyTexSubImage2DEXT(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
 
     mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+	glBindTexture(GL_TEXTURE_2D, 0);
     m_spout->UnBindSharedTexture();
 }
 #undef m_spout
