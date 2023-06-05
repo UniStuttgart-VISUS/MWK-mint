@@ -589,7 +589,7 @@ interop::DataSender::DataSender() {
 interop::DataSender::~DataSender() {
 }
 
-void interop::DataSender::start(const std::string& networkAddress, std::string const& filterName) {
+void interop::DataSender::start(const std::string& networkAddress, std::string const& filterName, Endpoint socket_type) {
 	m_filterName = filterName;
 
 	m_sender = std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::pub);
@@ -601,10 +601,17 @@ void interop::DataSender::start(const std::string& networkAddress, std::string c
 	try {
 		//std::string identity{"InteropLib"};
 		//socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
-		socket.bind(networkAddress);
+        switch (socket_type) {
+        case interop::Endpoint::Bind:
+            socket.bind(networkAddress);
+            break;
+        case interop::Endpoint::Connect:
+            socket.connect(networkAddress);
+            break;
+        }
 	}
 	catch (std::exception& e) {
-		std::cout << "InteropLib: binding zmq socket failed: " << e.what() << std::endl;
+		std::cout << "InteropLib: binding zmq socket failed: " << e.what() << " - " << networkAddress << std::endl;
 		return;
 	}
 }
@@ -643,7 +650,8 @@ bool interop::DataSender::sendData(std::string const& filterName, std::string co
 #undef m_socket
 
 namespace {
-	void runThread_DataReceiver(interop::DataReceiver* dr, const std::string& networkAddress, const std::string& filterName) {
+	void runThread_DataReceiver(interop::DataReceiver* dr, const std::string& networkAddress, const std::string& filterName,
+    interop::Endpoint const socket_type) {
 		if (dr == nullptr)
 			return;
 
@@ -662,7 +670,14 @@ namespace {
 			//socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message, drop old ones
 			socket.setsockopt(ZMQ_SUBSCRIBE, filter.data(), filter.size()); // only receive messages with prefix given by filterName
 			socket.setsockopt(ZMQ_RCVTIMEO, 100 /*ms*/); // timeout after not receiving messages for tenth of a second
-			socket.connect(networkAddress);
+        	switch (socket_type) {
+        	case interop::Endpoint::Bind:
+        	    socket.bind(networkAddress);
+        	    break;
+        	case interop::Endpoint::Connect:
+        	    socket.connect(networkAddress);
+        	    break;
+        	}
 		}
 		catch (std::exception& e) {
 			std::cout << "InteropLib: connecting zmq socket failed: " << e.what() << std::endl;
@@ -715,11 +730,11 @@ interop::DataReceiver::~DataReceiver() {
 	stop();
 }
 
-void interop::DataReceiver::start(const std::string& networkAddress, const std::string& filterName) {
+void interop::DataReceiver::start(const std::string& networkAddress, const std::string& filterName, Endpoint socket_type) {
 	if (m_threadRunning)
 		return;
 
-	m_thread = std::thread(runThread_DataReceiver, this, networkAddress, filterName);
+	m_thread = std::thread(runThread_DataReceiver, this, networkAddress, filterName, socket_type);
 }
 
 void interop::DataReceiver::stop() {

@@ -93,11 +93,16 @@ struct TextureReceiver {
 		static_assert(sizeof(uint) == 4, "unigned int expected to be 4 bytes");
 	};
 
+	enum class Endpoint {
+	    Bind,
+	    Connect,
+	};
+
 	struct DataSender {
 		DataSender();
 		~DataSender();
 
-		void start(const std::string& networkAddress, const std::string& filterName = ""); // address following zmq conventions, e.g. "tcp://localhost:1234"
+		void start(const std::string& networkAddress, const std::string& filterName = "", Endpoint socket_type = Endpoint::Connect); // address following zmq conventions, e.g. "tcp://localhost:1234"
 		void stop();
 
 		bool sendData(std::string const& v);
@@ -113,7 +118,7 @@ struct TextureReceiver {
 	struct DataReceiver {
 		~DataReceiver();
 
-		void start(const std::string& networkAddress, const std::string& filterName); // address following zmq conventions, e.g. "tcp://localhost:1234"
+		void start(const std::string& networkAddress, const std::string& filterName, Endpoint socket_type = Endpoint::Bind); // address following zmq conventions, e.g. "tcp://localhost:1234"
 		void stop();
 
 		template <typename Datatype>
