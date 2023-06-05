@@ -1,292 +1,311 @@
 
 #pragma once
 
-#include <string>
 #include <atomic>
-#include <thread>
-#include <mutex>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <thread>
 
 namespace interop {
 
 using uint = unsigned int;
 
-	void init();
+void init();
 
-	struct glFramebuffer {
-		void init(uint width = 1, uint height = 1);
-		void destroy();
+struct glFramebuffer {
+  void init(uint width = 1, uint height = 1);
+  void destroy();
 
-		void bind();
-		void unbind();
-		void resizeTexture(uint width, uint height);
-		void blitTexture();
+  void bind();
+  void unbind();
+  void resizeTexture(uint width, uint height);
+  void blitTexture();
 
-		uint m_glFbo = 0;
-		uint m_glTextureRGBA8 = 0;
-		uint m_glTextureDepth = 0;
-		int m_width = 0, m_height = 0;
+  uint m_glFbo = 0;
+  uint m_glTextureRGBA8 = 0;
+  uint m_glTextureDepth = 0;
+  int m_width = 0, m_height = 0;
 
-		int m_previousFramebuffer[2] = {0};
-		int m_previousViewport[4] = {0};
-	};
-
-	struct TextureSender {
-		TextureSender();
-		~TextureSender();
-
-		void init(std::string name, uint width = 1, uint height = 1);
-		void destroy();
-		bool resizeTexture(uint width, uint height);
-		void sendTexture(uint texture, uint width, uint height);
-		void sendTexture(glFramebuffer& fb);
-
-		std::string m_name = "";
-		uint m_width = 0;
-		uint m_height = 0;
-		std::shared_ptr<void> m_sender;
-	};
-
-struct TextureReceiver {
-    TextureReceiver();
-    ~TextureReceiver();
-
-    void init(std::string name);
-    void destroy();
-    void receiveTexture();
-
-    std::string m_name = "";
-    uint m_width = 0;
-    uint m_height = 0;
-    std::shared_ptr<void> m_receiver;
-    uint m_texture_handle = 0;
-    uint m_source_fbo = 0;
-    uint m_target_fbo = 0;
+  int m_previousFramebuffer[2] = {0};
+  int m_previousViewport[4] = {0};
 };
 
-	// packs color and depth textures into one huge texture before sharing texture data with other processes
-	// input widht/height are for the original size of the input textures
-	struct TexturePackageSender {
-		TexturePackageSender();
-		~TexturePackageSender();
+struct TextureSender {
+  TextureSender();
+  ~TextureSender();
 
-		void init(std::string name, const uint width = 1, const uint height = 1);
-		void destroy();
-		void sendTexturePackage(glFramebuffer& fb_left, glFramebuffer& fb_right, const uint width, const uint height, const uint meta_data = 0);
-		void sendTexturePackage(const uint color_left, const uint color_right, const uint depth_left, const uint depth_right, const uint width, const uint height, const uint meta_data = 0);
+  void init(std::string name, uint width = 1, uint height = 1);
+  void destroy();
+  bool resizeTexture(uint width, uint height);
+  void sendTexture(uint texture, uint width, uint height);
+  void sendTexture(glFramebuffer &fb);
 
-		std::string m_name = "";
-		uint m_width = 0;
-		uint m_height = 0;
-		uint m_hugeWidth = 0;
-		uint m_hugeHeight = 0;
-		glFramebuffer m_hugeFbo; // holds huge texture for sending 2x color, 2x depth at once
-		TextureSender m_hugeTextureSender;
-		void makeHugeTexture(const uint originalWidth, const uint originalHeight);
-		uint m_shader = 0;
-		uint m_vao = 0;
-		uint m_uniform_locations[5] = { 0 };
-		void initGLresources();
-		void destroyGLresources();
-		void blitTextures(const uint color_left_texture, const uint color_right_texture, const uint depth_left_texture, const uint depth_right_texture, const uint width, const uint height, const uint meta_data);
+  std::string m_name = "";
+  uint m_width = 0;
+  uint m_height = 0;
+  std::shared_ptr<void> m_sender;
+};
 
-		static_assert(sizeof(uint) == 4, "unigned int expected to be 4 bytes");
-	};
+struct TextureReceiver {
+  TextureReceiver();
+  ~TextureReceiver();
 
-	enum class Endpoint {
-	    Bind,
-	    Connect,
-	};
+  void init(std::string name);
+  void destroy();
+  void receiveTexture();
 
-	struct DataSender {
-		DataSender();
-		~DataSender();
+  std::string m_name = "";
+  uint m_width = 0;
+  uint m_height = 0;
+  std::shared_ptr<void> m_receiver;
+  uint m_texture_handle = 0;
+  uint m_source_fbo = 0;
+  uint m_target_fbo = 0;
+};
 
-		void start(const std::string& networkAddress, const std::string& filterName = "", Endpoint socket_type = Endpoint::Connect); // address following zmq conventions, e.g. "tcp://localhost:1234"
-		void stop();
+// packs color and depth textures into one huge texture before sharing texture
+// data with other processes input widht/height are for the original size of the
+// input textures
+struct TexturePackageSender {
+  TexturePackageSender();
+  ~TexturePackageSender();
 
-		bool sendData(std::string const& v);
-		bool sendData(std::string const& filterName, std::string const& v);
+  void init(std::string name, const uint width = 1, const uint height = 1);
+  void destroy();
+  void sendTexturePackage(glFramebuffer &fb_left, glFramebuffer &fb_right,
+                          const uint width, const uint height,
+                          const uint meta_data = 0);
+  void sendTexturePackage(const uint color_left, const uint color_right,
+                          const uint depth_left, const uint depth_right,
+                          const uint width, const uint height,
+                          const uint meta_data = 0);
 
-		template <typename DataType>
-		bool sendData(std::string const& filterName, DataType const& v);
+  std::string m_name = "";
+  uint m_width = 0;
+  uint m_height = 0;
+  uint m_hugeWidth = 0;
+  uint m_hugeHeight = 0;
+  glFramebuffer
+      m_hugeFbo; // holds huge texture for sending 2x color, 2x depth at once
+  TextureSender m_hugeTextureSender;
+  void makeHugeTexture(const uint originalWidth, const uint originalHeight);
+  uint m_shader = 0;
+  uint m_vao = 0;
+  uint m_uniform_locations[5] = {0};
+  void initGLresources();
+  void destroyGLresources();
+  void blitTextures(const uint color_left_texture,
+                    const uint color_right_texture,
+                    const uint depth_left_texture,
+                    const uint depth_right_texture, const uint width,
+                    const uint height, const uint meta_data);
 
-		std::shared_ptr<void> m_sender;
-		std::string m_filterName;
-	};
+  static_assert(sizeof(uint) == 4, "unigned int expected to be 4 bytes");
+};
 
-	struct DataReceiver {
-		~DataReceiver();
+enum class Endpoint {
+  Bind,
+  Connect,
+};
 
-		void start(const std::string& networkAddress, const std::string& filterName, Endpoint socket_type = Endpoint::Bind); // address following zmq conventions, e.g. "tcp://localhost:1234"
-		void stop();
+struct DataSender {
+  DataSender();
+  ~DataSender();
 
-		template <typename Datatype>
-		bool getData(Datatype& v);
+  void start(const std::string &networkAddress,
+             const std::string &filterName = "",
+             Endpoint socket_type =
+                 Endpoint::Connect); // address following zmq conventions, e.g.
+                                     // "tcp://localhost:1234"
+  void stop();
 
-		std::string m_msgData = "";
-		std::string m_msgDataCopy = "";
-		bool getDataCopy();
-		std::thread m_thread;
-		std::mutex m_mutex;
-		std::atomic<bool> m_threadRunning = false;
-		std::atomic_flag m_newDataFlag;
-	};
+  bool sendData(std::string const &v);
+  bool sendData(std::string const &filterName, std::string const &v);
 
+  template <typename DataType>
+  bool sendData(std::string const &filterName, DataType const &v);
 
-	// all vectors, matrices and quaternions follow OpenGL and GLM conventions
-	// in the sense that the data can directly be passed to GL and GLM functions
+  std::shared_ptr<void> m_sender;
+  std::string m_filterName;
+};
 
-	// column vector, as in glm
-	struct vec4 {
-		float x = 0.0f;
-		float y = 0.0f;
-		float z = 0.0f;
-		float w = 0.0f;
-	};
-	vec4 operator+(vec4 const& lhs, vec4 const& rhs);
-	vec4 operator-(vec4 const& lhs, vec4 const& rhs);
-	vec4 operator*(vec4 const& lhs, vec4 const& rhs);
-	vec4 operator*(vec4 const& v, const float s);
-	vec4 operator*(const float s, const vec4 v);
+struct DataReceiver {
+  ~DataReceiver();
 
-	// column major matrix built from column vectors: (v1, v2, v3, v4)
-	struct mat4 {
-		vec4 data[4] = {
-			vec4{1.0f, 0.0f, 0.0f, 0.0f},
-			vec4{0.0f, 1.0f, 0.0f, 0.0f},
-			vec4{0.0f, 0.0f, 1.0f, 0.0f},
-			vec4{0.0f, 0.0f, 0.0f, 1.0f},
-		};
-	};
+  void start(const std::string &networkAddress, const std::string &filterName,
+             Endpoint socket_type =
+                 Endpoint::Bind); // address following zmq conventions, e.g.
+                                  // "tcp://localhost:1234"
+  void stop();
 
-	struct CameraView {
-		vec4 eyePos;
-		vec4 lookAtPos;
-		vec4 camUpDir;
-	};
+  template <typename Datatype> bool getData(Datatype &v);
 
-	struct StereoCameraView {
-		CameraView leftEyeView;
-		CameraView rightEyeView;
-	};
+  std::string m_msgData = "";
+  std::string m_msgDataCopy = "";
+  bool getDataCopy();
+  std::thread m_thread;
+  std::mutex m_mutex;
+  std::atomic<bool> m_threadRunning = false;
+  std::atomic_flag m_newDataFlag;
+};
 
-	struct CameraProjection {
-		float fieldOfViewY_rad = 1.0f; // vertical field of view in radians 
-		float nearClipPlane = 0.1f; // distance of near clipping plane
-		float farClipPlane = 1.0f;
+// all vectors, matrices and quaternions follow OpenGL and GLM conventions
+// in the sense that the data can directly be passed to GL and GLM functions
 
-		float aspect = 1.0f; // aspect ratio, width divided by height
-		uint pixelWidth = 1; // width of camera area in pixels, i.e. framebuffer texture size
-		uint pixelHeight = 1;
-	};
+// column vector, as in glm
+struct vec4 {
+  float x = 0.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+  float w = 0.0f;
+};
+vec4 operator+(vec4 const &lhs, vec4 const &rhs);
+vec4 operator-(vec4 const &lhs, vec4 const &rhs);
+vec4 operator*(vec4 const &lhs, vec4 const &rhs);
+vec4 operator*(vec4 const &v, const float s);
+vec4 operator*(const float s, const vec4 v);
 
-	struct CameraConfiguration {
-		CameraView viewParameters;
-		CameraProjection projectionParameters;
+// column major matrix built from column vectors: (v1, v2, v3, v4)
+struct mat4 {
+  vec4 data[4] = {
+      vec4{1.0f, 0.0f, 0.0f, 0.0f},
+      vec4{0.0f, 1.0f, 0.0f, 0.0f},
+      vec4{0.0f, 0.0f, 1.0f, 0.0f},
+      vec4{0.0f, 0.0f, 0.0f, 1.0f},
+  };
+};
 
-		// the matrices hold the respective low-level camera transformations as read from unity
-		// the matrices may be from the VR SDK and thus better suited for VR stereo rendering than the explicit camera parameters above
-		mat4 viewMatrix;
-		mat4 projectionMatrix;
-	};
+struct CameraView {
+  vec4 eyePos;
+  vec4 lookAtPos;
+  vec4 camUpDir;
+};
 
-	struct StereoCameraConfiguration {
-		float stereoConvergence = 1.0f; // distance to point where left and right eye converge
-		float stereoSeparation = 1.0f; // distance between virtual eyes
+struct StereoCameraView {
+  CameraView leftEyeView;
+  CameraView rightEyeView;
+};
 
-		CameraConfiguration cameraLeftEye;
-		CameraConfiguration cameraRightEye;
-	};
+struct CameraProjection {
+  float fieldOfViewY_rad = 1.0f; // vertical field of view in radians
+  float nearClipPlane = 0.1f;    // distance of near clipping plane
+  float farClipPlane = 1.0f;
 
-	// to be applied as model matrix (or equivalent) to the dataset before rendering
-	struct ModelPose {
-		vec4 translation;
-		vec4 scale;
-		vec4 rotation_axis_angle_rad; // angle in radians, as expected by GLM
+  float aspect = 1.0f; // aspect ratio, width divided by height
+  uint pixelWidth =
+      1; // width of camera area in pixels, i.e. framebuffer texture size
+  uint pixelHeight = 1;
+};
 
-		mat4 modelMatrix;
-	};
+struct CameraConfiguration {
+  CameraView viewParameters;
+  CameraProjection projectionParameters;
 
-	// renderer receives this config from unity
-	struct DatasetRenderConfiguration {
-		StereoCameraConfiguration stereoCamera;
-		ModelPose modelTransform;
-	};
+  // the matrices hold the respective low-level camera transformations as read
+  // from unity the matrices may be from the VR SDK and thus better suited for
+  // VR stereo rendering than the explicit camera parameters above
+  mat4 viewMatrix;
+  mat4 projectionMatrix;
+};
 
-	// axis-aligned bounding box of rendered data 
-	// renderer sends bounding box (in world space) of its geometry to unity
-	// bounding box is used as reference for rendering and interaction with dataset
-	struct BoundingBoxCorners {
-		vec4 min;
-		vec4 max;
+struct StereoCameraConfiguration {
+  float stereoConvergence =
+      1.0f; // distance to point where left and right eye converge
+  float stereoSeparation = 1.0f; // distance between virtual eyes
 
-		// returns vector V such that 'V + x' moves vector x to centered bbox coordinates
-		vec4 getCenteringVector() const {
-			return -1.0f * (min + ((max - min) * 0.5f));
-		}
+  CameraConfiguration cameraLeftEye;
+  CameraConfiguration cameraRightEye;
+};
 
-		// returns transformation matrix to center bounding box (and data set) at (0,0,0)
-		// the convention between Unity and our renderer is that the data set is centered at (and can be rotated around) zero
-		mat4 getCenteringTransform() const {
-			mat4 translate; // identity
+// to be applied as model matrix (or equivalent) to the dataset before rendering
+struct ModelPose {
+  vec4 translation;
+  vec4 scale;
+  vec4 rotation_axis_angle_rad; // angle in radians, as expected by GLM
 
-			translate.data[3] = this->getCenteringVector();
-			translate.data[3].w = 1.0f;
+  mat4 modelMatrix;
+};
 
-			return translate;
-		}
+// renderer receives this config from unity
+struct DatasetRenderConfiguration {
+  StereoCameraConfiguration stereoCamera;
+  ModelPose modelTransform;
+};
 
-		// Unity expects a bounding box centered at zero
-		BoundingBoxCorners getCenteredBoundingBox() const {
-			auto transform = this->getCenteringTransform();
-			transform.data[3].w = 0.0f;
+// axis-aligned bounding box of rendered data
+// renderer sends bounding box (in world space) of its geometry to unity
+// bounding box is used as reference for rendering and interaction with dataset
+struct BoundingBoxCorners {
+  vec4 min;
+  vec4 max;
 
-			return BoundingBoxCorners{
-				this->min + transform.data[3],
-				this->max + transform.data[3]};
-		}
-	};
+  // returns vector V such that 'V + x' moves vector x to centered bbox
+  // coordinates
+  vec4 getCenteringVector() const {
+    return -1.0f * (min + ((max - min) * 0.5f));
+  }
 
-// converter functions to fill inteorp struct from Json string received by DataReceiver
-#define make_dataGet(DataTypeName) \
-template <> \
-bool DataReceiver::getData<DataTypeName>(DataTypeName& v);
+  // returns transformation matrix to center bounding box (and data set) at
+  // (0,0,0) the convention between Unity and our renderer is that the data set
+  // is centered at (and can be rotated around) zero
+  mat4 getCenteringTransform() const {
+    mat4 translate; // identity
 
-make_dataGet(BoundingBoxCorners)
-make_dataGet(DatasetRenderConfiguration)
-make_dataGet(ModelPose)
-make_dataGet(StereoCameraConfiguration)
-make_dataGet(CameraConfiguration)
-make_dataGet(CameraProjection)
-make_dataGet(StereoCameraView)
-make_dataGet(CameraView)
-make_dataGet(mat4)
-make_dataGet(vec4)
+    translate.data[3] = this->getCenteringVector();
+    translate.data[3].w = 1.0f;
 
-make_dataGet(bool)
-make_dataGet(int)
-make_dataGet(unsigned int)
-make_dataGet(float)
-make_dataGet(double)
+    return translate;
+  }
+
+  // Unity expects a bounding box centered at zero
+  BoundingBoxCorners getCenteredBoundingBox() const {
+    auto transform = this->getCenteringTransform();
+    transform.data[3].w = 0.0f;
+
+    return BoundingBoxCorners{this->min + transform.data[3],
+                              this->max + transform.data[3]};
+  }
+};
+
+// converter functions to fill inteorp struct from Json string received by
+// DataReceiver
+#define make_dataGet(DataTypeName)                                             \
+  template <> bool DataReceiver::getData<DataTypeName>(DataTypeName & v);
+
+make_dataGet(BoundingBoxCorners);
+make_dataGet(DatasetRenderConfiguration);
+make_dataGet(ModelPose);
+make_dataGet(StereoCameraConfiguration);
+make_dataGet(CameraConfiguration);
+make_dataGet(CameraProjection);
+make_dataGet(StereoCameraView);
+make_dataGet(CameraView);
+make_dataGet(mat4);
+make_dataGet(vec4);
+
+make_dataGet(bool);
+make_dataGet(int);
+make_dataGet(unsigned int);
+make_dataGet(float);
+make_dataGet(double);
 #undef make_dataGet
 
+#define make_sendData(DataTypeName)                                            \
+  template <>                                                                  \
+  bool interop::DataSender::sendData<DataTypeName>(                            \
+      std::string const &filterName, DataTypeName const &v);
 
-#define make_sendData(DataTypeName) \
-template <> \
-bool interop::DataSender::sendData<DataTypeName>(std::string const& filterName, DataTypeName const& v);
-
-make_sendData(BoundingBoxCorners)
-make_sendData(DatasetRenderConfiguration)
-make_sendData(ModelPose)
-make_sendData(StereoCameraConfiguration)
-make_sendData(CameraConfiguration)
-make_sendData(CameraProjection)
-make_sendData(StereoCameraView)
-make_sendData(CameraView)
-make_sendData(mat4)
-make_sendData(vec4)
+make_sendData(BoundingBoxCorners);
+make_sendData(DatasetRenderConfiguration);
+make_sendData(ModelPose);
+make_sendData(StereoCameraConfiguration);
+make_sendData(CameraConfiguration);
+make_sendData(CameraProjection);
+make_sendData(StereoCameraView);
+make_sendData(CameraView);
+make_sendData(mat4);
+make_sendData(vec4);
 #undef make_sendData
 
-}
-
+} // namespace interop
