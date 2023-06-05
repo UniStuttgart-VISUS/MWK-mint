@@ -350,8 +350,8 @@ void interop::TextureReceiver::receiveTexture() {
 	const auto make_texture = [&](){
         glBindTexture(GL_TEXTURE_2D, m_texture_handle);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, m_width, m_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glBindTexture(GL_TEXTURE_2D, 0);
 	};
 
@@ -366,23 +366,31 @@ void interop::TextureReceiver::receiveTexture() {
 		make_texture();
     }
 
-    if (!m_fbo) {
-        mglGenFramebuffersEXT(1, &m_fbo);
-	}
-    mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+    if (!m_source_fbo) {
+        mglGenFramebuffersEXT(1, &m_source_fbo);
+        mglGenFramebuffersEXT(1, &m_target_fbo);
+    }
+    mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_source_fbo);
     mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, shared_texture_id, 0);
+    GLenum e = mglCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+    if (e != GL_FRAMEBUFFER_COMPLETE_EXT)
+        printf("There is a problem with the FBO\n");
 
-	GLenum e = mglCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
-	if (e != GL_FRAMEBUFFER_COMPLETE_EXT)
-		printf("There is a problem with the FBO\n");
+    mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_target_fbo);
+    mglFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, m_texture_handle, 0);
+    e = mglCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
+    if (e != GL_FRAMEBUFFER_COMPLETE_EXT)
+        printf("There is a problem with the FBO\n");
 
-    glReadBuffer(GL_COLOR_ATTACHMENT0_EXT);
-	glBindTexture(GL_TEXTURE_2D, m_texture_handle);
+    mglBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_target_fbo);
+    mglBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_source_fbo);
 
-    mglCopyTexSubImage2DEXT(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width, height);
+	// flip y axis of dx texture
+    mglBlitFramebufferEXT(
+        0, m_height, m_width, 0, 0, 0, m_width, m_height, GL_COLOR_BUFFER_BIT /*| GL_DEPTH_BUFFER_BIT*/, GL_NEAREST);
 
     mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-	glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
     m_spout->UnBindSharedTexture();
 }
 #undef m_spout

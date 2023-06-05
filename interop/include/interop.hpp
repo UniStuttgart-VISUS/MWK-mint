@@ -60,7 +60,8 @@ struct TextureReceiver {
     uint m_height = 0;
     std::shared_ptr<void> m_receiver;
     uint m_texture_handle = 0;
-    uint m_fbo = 0;
+    uint m_source_fbo = 0;
+    uint m_target_fbo = 0;
 };
 
 	// packs color and depth textures into one huge texture before sharing texture data with other processes
