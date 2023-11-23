@@ -9,6 +9,10 @@
 
 #include <iostream>
 #include <vector>
+#include <chrono>
+#include <thread>
+#include <ctime>
+#include <fstream>
 
 #include <interop.hpp>
 
@@ -131,9 +135,20 @@ struct RenderVertices {
 
 const char *vertex_shader_source =
 R"(
-	#version 400
+	#version 430 core
 
 	//in int gl_VertexID;
+
+	uniform sampler2D texture_in;
+
+	uniform int latency_measure_active;
+	uniform int latency_measure_current_frame_id;
+	uniform int latency_measure_current_index;
+
+	layout (std430, binding=2) buffer LatencySsboDataBlock
+	{ 
+	  uvec2 data[]; // x = render loop frame if, y = incoming texture frame id
+	} ssbo_data;
 
 	const vec4 unitQuad[4] =
 	vec4[](
@@ -146,12 +161,19 @@ R"(
 	void main()
 	{
 	    gl_Position = unitQuad[gl_VertexID];
+
+		if(gl_VertexID == 0 && latency_measure_active > 0) {
+			// reverses: FragColor = unpackUnorm4x8(uint(meta_data))
+			vec4 id_raw = texelFetch(texture_in, ivec2(0,0), 0);
+			uint texture_frame_id = packUnorm4x8(id_raw);
+			ssbo_data.data[latency_measure_current_index] = uvec2(latency_measure_current_frame_id, texture_frame_id);
+		}
 	}
 )";
 
 const char *fragment_shader_source =
 R"(
-	#version 400
+	#version 430 core
 
 	in vec4 gl_FragCoord;
 
@@ -159,7 +181,6 @@ R"(
 
 	uniform sampler2D texture_in;
 	uniform ivec2 texture_size;
-	uniform int meta_data;
 
 	void main()
 	{
@@ -236,9 +257,51 @@ int main(void)
 
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
+
+	unsigned int seconds = 60;
+	unsigned int samples_per_second = 200; // roughtly application fps
+	unsigned int latency_sample_count = samples_per_second * seconds;
+
+	using SsboType = glm::uvec2;
+	std::vector<SsboType> latency_ssbo_values(latency_sample_count, SsboType{});
+	const auto latency_ssbo_memory_size = latency_ssbo_values.size() * sizeof(SsboType);
+	assert(SsboType{}.x == 0 && SsboType{}.y == 0);
+
+	struct LatencyMeasurements {
+		unsigned int frame_id = 0;
+		unsigned int texture_frame_id = 0;
+		float frame_delay_ms = 0.f;
+	};
+	std::vector<LatencyMeasurements> latency_measurements(latency_sample_count, LatencyMeasurements{});
+	unsigned int latency_measurements_index = 0;
+
+	GLuint block_index = 0;
+	block_index = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, "LatencySsboDataBlock");
+	GLuint ssbo_binding_point_index = 2;
+	glShaderStorageBlockBinding(program, block_index, ssbo_binding_point_index);
+
+	GLuint latency_ssbo = 0;
+	glGenBuffers(1, &latency_ssbo);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, latency_ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, latency_ssbo_memory_size, latency_ssbo_values.data(), GL_DYNAMIC_READ);
+
+	auto read_ssbo_data_from_gpu = [&]() {
+		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+		void* p = glMapNamedBuffer(latency_ssbo, GL_READ_ONLY);
+		memcpy(latency_ssbo_values.data(), p, latency_ssbo_memory_size);
+		glUnmapNamedBuffer(latency_ssbo);
+	};
 	
 	GLuint uniform_texture_location = glGetUniformLocation(program, "texture_in"); // sampler2D
 	GLuint uniform_texture_size_location = glGetUniformLocation(program, "texture_size"); // ivec2
+	GLuint uniform_latency_measure_active = glGetUniformLocation(program, "latency_measure_active"); // int 
+	GLuint uniform_latency_measure_frame_id = glGetUniformLocation(program, "latency_measure_current_frame_id"); // int 
+	GLuint uniform_latency_measure_index= glGetUniformLocation(program, "latency_measure_current_index"); // int 
+
+	bool latency_measure_active = false;
+
+	float latency_measure_delay_until_start_sec = 10;
 
 	std::vector<Vertex> quadVertices;
 	RenderVertices quad;
@@ -299,9 +362,19 @@ int main(void)
 
 	mint::uint frame_id = 0;
 
+	using namespace std::chrono_literals;
+	using FpMilliseconds = std::chrono::duration<float, std::chrono::milliseconds::period>;
+	auto program_start_time = std::chrono::high_resolution_clock::now();
+	auto current_time = std::chrono::high_resolution_clock::now();
+
+	bool has_bbox = false;
+
 	while (!glfwWindowShouldClose(window))
 	{
 		frame_id++;
+
+		auto last_time = current_time;
+		current_time = std::chrono::high_resolution_clock::now();
 
 		glfwGetFramebufferSize(window, &width, &height);
 
@@ -318,7 +391,7 @@ int main(void)
 		cameraProjection.pixelHeight = height;
 
 		mint::BoundingBoxCorners newBbox;
-		if (bboxReceiver.getData(newBbox)) {
+		if (has_bbox = bboxReceiver.getData(newBbox)) {
 			if(newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
 				defaultCameraView = get_camera_view(newBbox);
 				bboxCorners = newBbox;
@@ -372,7 +445,70 @@ int main(void)
 		glBindTexture(GL_TEXTURE_2D, texture_handle);
 		glUniform1i(uniform_texture_location, binding_point);
 
-		glUniform2i(uniform_texture_size_location, width, height); // set it manually
+		// start latency measurements
+		if (has_bbox && !latency_measure_active && FpMilliseconds(current_time - program_start_time).count() > latency_measure_delay_until_start_sec && latency_measurements_index == 0) {
+			latency_measure_active = true;
+		}
+		// stop latency measurements
+		if (latency_measure_active && latency_measurements_index >= latency_measurements.size()) {
+			latency_measure_active = false;
+
+			read_ssbo_data_from_gpu();
+
+			std::string result = "# FrameID,GpuFrameID,FrameTimeDeltaMS\n";
+
+			auto cpu_iter = latency_measurements.begin();
+			for (auto pair : latency_ssbo_values) {
+				auto& cpu = *cpu_iter;
+
+				if (cpu.frame_id != pair.x) {
+					std::cout << "LATENCY ID PAIR ERROR: CPU=" << cpu.frame_id << ", GPU=" << pair.x << std::endl;
+					std::exit(EXIT_FAILURE);
+				}
+
+				cpu.texture_frame_id = pair.y;
+				cpu_iter++;
+
+				result +=
+					std::to_string(cpu.frame_id) + ","
+					+ std::to_string(cpu.texture_frame_id) + ","
+					+ std::to_string(cpu.frame_delay_ms) + "\n";
+				//std::cout << "FrameId=" << cpu.frame_id << ", TexId=" << cpu.texture_frame_id << ", deltaMS= " << cpu.frame_delay_ms <<std::endl;
+
+			}
+
+			// write latency_measurements to file
+			std::time_t time = std::time({});
+			char timeString[std::size("yyyy-mm-dd-hh-mm")];
+			std::strftime(std::data(timeString), std::size(timeString), "%F-%H-%M", std::localtime(&time));
+
+			std::string filename = "mint_steering_frame_latency_measurements_" + std::string{ timeString } + ".txt";
+			std::ofstream file{filename};
+
+			if(!file.good()){
+					std::cout << "ERROR: COULD NOT OPEN FILE " << filename << std::endl;
+					std::exit(EXIT_FAILURE);
+			}
+
+			file << result;
+		}
+
+		// do latency measurements
+		auto latency_ssbo_index = 0;
+		if (latency_measure_active && latency_measurements_index < latency_measurements.size()) {
+			latency_ssbo_index = latency_measurements_index;
+			latency_measurements_index++;
+			latency_measurements[latency_ssbo_index].frame_id = frame_id;
+			latency_measurements[latency_ssbo_index].texture_frame_id = 42;
+			latency_measurements[latency_ssbo_index].frame_delay_ms = FpMilliseconds(current_time - last_time).count();
+		}
+
+		glUniform1i(uniform_latency_measure_active, latency_measure_active ? 1 : 0);
+		glUniform1i(uniform_latency_measure_frame_id, static_cast<int>(frame_id));
+		glUniform1i(uniform_latency_measure_index, static_cast<int>(latency_ssbo_index));
+		glUniform2i(uniform_texture_size_location, width, height);
+
+		//std::this_thread::sleep_for(1s);
 
 		quad.bind();
 		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
