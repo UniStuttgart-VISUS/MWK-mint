@@ -5,7 +5,7 @@ project(rendering VERSION 1.0
 	LANGUAGES CXX)
 
 # project-wide c++ standard settings
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -52,3 +52,8 @@ set(INCLUDE_LIBS_EXTERNAL ${OPENGL_INCLUDE_DIR})
 add_executable(rendering src/rendering.cpp)
 target_include_directories(rendering PRIVATE ${INCLUDE_LIBS_EXTERNAL})
 target_link_libraries(rendering PRIVATE ${LINK_LIBS_EXTERNAL})
+	
+# build steering app
+add_executable(steering src/steering.cpp)
+target_include_directories(steering PRIVATE ${INCLUDE_LIBS_EXTERNAL})
+target_link_libraries(steering PRIVATE ${LINK_LIBS_EXTERNAL})

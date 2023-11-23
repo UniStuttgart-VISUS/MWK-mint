@@ -12,13 +12,13 @@
 #include <vector>
 
 #include <interop.hpp>
-glm::vec4 toGlm(const interop::vec4& v) {
+glm::vec4 toGlm(const mint::vec4& v) {
 	return glm::vec4{v.x, v.y, v.z, v.w};
 }
-interop::vec4 toInterop(const glm::vec3& v) {
-	return interop::vec4{v.x, v.y, v.z, 0.0f};
+mint::vec4 toInterop(const glm::vec3& v) {
+	return mint::vec4{v.x, v.y, v.z, 0.0f};
 }
-glm::mat4 toGlm(const interop::mat4& m) {
+glm::mat4 toGlm(const mint::mat4& m) {
 	return glm::mat4{
 		toGlm(m.data[0]),
 		toGlm(m.data[1]),
@@ -195,7 +195,7 @@ int main(void)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	int initialWidth = 640;
 	int initialHeight = 480;
-	window = glfwCreateWindow(initialWidth, initialHeight, "Triangle Rendering", NULL, NULL);
+	window = glfwCreateWindow(initialWidth, initialHeight, "mint rendering example", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -254,61 +254,46 @@ int main(void)
 	bbox.unbind();
 	bbox.setElements(bboxElements);
 
+	mint::init(mint::Role::Rendering, mint::Protocol::IPC);
 
-	interop::glFramebuffer fbo_left; // has RGBA color and depth buffer
+	mint::glFramebuffer fbo_left;
 	fbo_left.init();
-	interop::glFramebuffer fbo_right;
+	mint::glFramebuffer fbo_right;
 	fbo_right.init();
 
-	interop::TextureSender ts_left; // has spout sender
-	std::string default_name = "/UnityInterop/DefaultName";
-	ts_left.init(default_name + "Left");
-	interop::TextureSender ts_right;
-	ts_right.init(default_name + "Right");
+	mint::TextureSender ts_left;
+	ts_left.init(mint::ImageType::LeftEye);
+	mint::TextureSender ts_right;
+	ts_right.init(mint::ImageType::RightEye);
 
-	interop::DataReceiver modelPoseReceiver;
-	modelPoseReceiver.start("tcp://localhost:12345", "ModelPose");
-	auto modelPose = interop::ModelPose(); // identity matrix or received from unity
+	mint::DataReceiver cameraProjectionReceiver;
+	cameraProjectionReceiver.start("CameraProjection");
+	auto cameraProjection = mint::CameraProjection();
 
-	//interop::DataReceiver cameraPoseReceiver;
-	//cameraPoseReceiver.start("tcp://localhost:12345", "CameraPose");
-	//auto cameraPose = interop::ModelPose();
-	
-	//interop::DataReceiver cameraConfigReceiver;
-	//cameraConfigReceiver.start("tcp://localhost:12345", "CameraConfiguration");
-	//auto cameraConfig = interop::CameraConfiguration();
+	mint::DataReceiver stereoCameraViewReceiver_relative;
+	stereoCameraViewReceiver_relative.start("StereoCameraViewRelative");
+	auto stereoCameraView = mint::StereoCameraView();
 
-	interop::DataReceiver cameraProjectionReceiver;
-	cameraProjectionReceiver.start("tcp://localhost:12345", "CameraProjection");
-	auto cameraProjection = interop::CameraProjection();
-
-	interop::DataReceiver stereoCameraViewReceiver_relative;
-	stereoCameraViewReceiver_relative.start("tcp://localhost:12345", "StereoCameraViewRelative");
-	//interop::DataReceiver stereoCameraViewReceiver;
-	//stereoCameraViewReceiver.start("tcp://localhost:12345", "StereoCameraView");
-	auto stereoCameraView = interop::StereoCameraView();
-
-	interop::DataSender bboxSender;
-	bboxSender.start("tcp://127.0.0.1:12346", "BoundingBoxCorners");
-	auto bboxCorners = interop::BoundingBoxCorners{
-		interop::vec4{0.0f, 0.0f, 0.0f , 1.0f},
-		interop::vec4{2.0f*offset.x, 2.0f*offset.y, 2.0f*offset.z, 1.0f}
+	mint::DataSender bboxSender;
+	bboxSender.start("BoundingBoxCorners");
+	auto bboxCorners = mint::BoundingBoxCorners{
+		mint::vec4{0.0f, 0.0f, 0.0f , 1.0f},
+		mint::vec4{2.0f*offset.x, 2.0f*offset.y, 2.0f*offset.z, 1.0f}
 	};
 
-	//interop::DataReceiver bboxCorrectionReceiver;
-	//bboxCorrectionReceiver.start("tcp://localhost:12345", "BBoxCorrection");
-	//auto bboxCorrectionPose = interop::ModelPose(); // identity matrix or received from unity
+	mint::StereoTextureSender stereotextureSender;
+	stereotextureSender.init();
 
-	interop::TexturePackageSender texturepackageSender;
-	texturepackageSender.init(default_name + "SingleStereo", 400, 600);
-
-	interop::CameraView defaultCameraView;
+	mint::CameraView defaultCameraView;
 	defaultCameraView.eyePos    = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
 	defaultCameraView.lookAtPos = toInterop(glm::vec3{ 0.0f });
 	defaultCameraView.camUpDir  = toInterop(glm::vec3{ 0.0f, 1.0f, 0.0f });
 	auto view = glm::lookAt(glm::vec3(toGlm(defaultCameraView.eyePos)), glm::vec3(toGlm(defaultCameraView.lookAtPos)), glm::vec3(toGlm(defaultCameraView.camUpDir)));
 	float ratio = initialWidth/ (float) initialHeight;
 	auto projection = glm::perspective(90.0f, ratio, 0.1f, 10.0f);
+
+	stereoCameraView.leftEyeView = defaultCameraView;
+	stereoCameraView.rightEyeView = defaultCameraView;
 
 	int width = 800, height = 600;
 	glfwGetFramebufferSize(window, &width, &height);
@@ -320,9 +305,9 @@ int main(void)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		bboxSender.sendData<interop::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
+		bboxSender.sendData<mint::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
 
-		const auto getModelMatrix = [](interop::ModelPose& mp) -> glm::mat4 {
+		const auto getModelMatrix = [](mint::ModelPose& mp) -> glm::mat4 {
 			const glm::vec4 modelTranslate = toGlm(mp.translation);
 			const glm::vec4 modelScale     = toGlm(mp.scale);
 			const glm::vec4 modelRotation  = toGlm(mp.rotation_axis_angle_rad);
@@ -334,17 +319,9 @@ int main(void)
 		};
 
 		bool received_data = false;
-		if (received_data |= modelPoseReceiver.getData<interop::ModelPose>(modelPose)) { // if has new data, returns true and overwrites modelPose
-			glm::mat4 modelPoseMat = toGlm(modelPose.modelMatrix);
-			const glm::mat4 model = getModelMatrix(modelPose);
-		}
-
-		//if (received_data |= bboxCorrectionReceiver.getData<interop::ModelPose>(bboxCorrectionPose)) {
-		//	glm::mat4 bboxCorrection = toGlm(bboxCorrectionPose.modelMatrix);
-		//}
 
 		bool hasNewWindowSize = false;
-		if (received_data |= cameraProjectionReceiver.getData<interop::CameraProjection>(cameraProjection)) {
+		if (received_data |= cameraProjectionReceiver.getData<mint::CameraProjection>(cameraProjection)) {
 			projection = glm::perspective(
 				cameraProjection.fieldOfViewY_rad,
 				cameraProjection.aspect,
@@ -361,14 +338,9 @@ int main(void)
 			}
 		}
 
-		//if (received_data |= cameraConfigReceiver.getData<interop::CameraConfiguration>(cameraConfig)) {
-		//	projection = toGlm(cameraConfig.projectionMatrix);
-		//}
-		//received_data |= cameraPoseReceiver.getData<interop::ModelPose>(cameraPose);
-		received_data |= stereoCameraViewReceiver_relative.getData<interop::StereoCameraView>(stereoCameraView);
+		received_data |= stereoCameraViewReceiver_relative.getData<mint::StereoCameraView>(stereoCameraView);
 
-
-		const auto renderFromEye = [&](interop::CameraView& camView, interop::glFramebuffer& fbo, interop::TextureSender& ts)
+		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender& ts)
 		{
 			if(hasNewWindowSize || width != fbo.m_width || height != fbo.m_height) {
 				fbo.resizeTexture(width, height);
@@ -384,12 +356,8 @@ int main(void)
 				glm::vec3(toGlm(camView.eyePos)),
 				glm::vec3(toGlm(camView.lookAtPos)),
 				glm::vec3(toGlm(camView.camUpDir)));
-				//glm::vec3(toGlm(cameraPose.modelMatrix) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)),
-				//glm::vec3(toGlm(cameraPose.modelMatrix) * glm::vec4(0.0f, 0.0f,-1.0f, 1.0f)),
-				//glm::vec3(glm::transpose(glm::inverse(toGlm(cameraPose.modelMatrix))) * glm::vec4(0.0f, 1.0f, 0.0f, 1.0f)) );
-			//view = toGlm(cameraConfig.viewMatrix);
 
-			const auto mvp = projection * view;// *model * bboxCorrection;
+			const auto mvp = projection * view;
 
 			glUseProgram(program);
 			glUniformMatrix4fv(mvp_location, 1, GL_FALSE, (const GLfloat*) glm::value_ptr(mvp));
@@ -407,45 +375,28 @@ int main(void)
 			fbo.blitTexture(); // blit custom fbo to default framebuffer
 		};
 
-		static bool received_any_data = false;
-		interop::uint frame_id = 0;
-		if (received_any_data |= received_data) {
-			renderFromEye(stereoCameraView.leftEyeView, fbo_left, ts_left);
-			renderFromEye(stereoCameraView.rightEyeView, fbo_right, ts_right);
-			frame_id = glm::floatBitsToUint(stereoCameraView.leftEyeView.eyePos.w);
-		}
-		else {
-			auto leftView{ defaultCameraView };
-			leftView.eyePos.x = leftView.eyePos.x - 2.6;
-			leftView.eyePos.y = leftView.eyePos.y - 1.6;
-			renderFromEye(leftView, fbo_left, ts_left);
+		render(stereoCameraView.leftEyeView, fbo_left, ts_left);
+		render(stereoCameraView.rightEyeView, fbo_right, ts_right);
 
-			auto rightView{ defaultCameraView };
-			rightView.eyePos.x = rightView.eyePos.x + 1.6;
-			rightView.eyePos.y = rightView.eyePos.y + 1.6;
-			renderFromEye(rightView, fbo_right, ts_right);
-		}
+		// embedd frame id from steering in texture
+		mint::uint steering_frame_id = 0;
+		steering_frame_id = glm::floatBitsToUint(stereoCameraView.leftEyeView.eyePos.w);
 
-		texturepackageSender.sendTexturePackage(fbo_left, fbo_right, width, height, frame_id);
+		stereotextureSender.sendStereoTexture(fbo_left, fbo_right, width, height, steering_frame_id);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
-	modelPoseReceiver.stop();
 	cameraProjectionReceiver.stop();
 	stereoCameraViewReceiver_relative.stop();
 	bboxSender.stop();
-	//cameraConfigReceiver.stop();
-	//cameraPoseReceiver.stop();
-	//stereoCameraViewReceiver.stop();
-	//bboxCorrectionReceiver.stop();
 
 	fbo_left.destroy();
 	fbo_right.destroy();
 	ts_left.destroy();
 	ts_right.destroy();
-	texturepackageSender.destroy();
+	stereotextureSender.destroy();
 
 	quad.destroy();
 	bbox.destroy();

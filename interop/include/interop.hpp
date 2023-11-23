@@ -1,17 +1,31 @@
 
 #pragma once
 
-#include <atomic>
 #include <memory>
-#include <mutex>
 #include <string>
-#include <thread>
+#include <optional>
 
 namespace interop {
 
 using uint = unsigned int;
 
-void init();
+enum class Role {
+    Steering,
+    Rendering,
+};
+
+enum class Protocol {
+    IPC,
+    TCP,
+};
+
+enum class ImageType {
+    LeftEye,
+    RightEye,
+    SingleStereo,
+};
+
+void init(Role r, Protocol p = Protocol::IPC);
 
 struct glFramebuffer {
   void init(uint width = 1, uint height = 1);
@@ -36,6 +50,7 @@ struct TextureSender {
   ~TextureSender();
 
   void init(std::string name, uint width = 1, uint height = 1);
+  void init(ImageType type, std::string name = "", uint width = 1, uint height = 1);
   void destroy();
   bool resizeTexture(uint width, uint height);
   void sendTexture(uint texture, uint width, uint height);
@@ -52,6 +67,8 @@ struct TextureReceiver {
   ~TextureReceiver();
 
   void init(std::string name);
+  void init(ImageType type, std::string name = "");
+
   void destroy();
   void receiveTexture();
 
@@ -67,16 +84,17 @@ struct TextureReceiver {
 // packs color and depth textures into one huge texture before sharing texture
 // data with other processes input widht/height are for the original size of the
 // input textures
-struct TexturePackageSender {
-  TexturePackageSender();
-  ~TexturePackageSender();
+struct StereoTextureSender {
+  StereoTextureSender();
+  ~StereoTextureSender();
 
-  void init(std::string name, const uint width = 1, const uint height = 1);
+  void init(std::string name = "", const uint width = 1, const uint height = 1);
+
   void destroy();
-  void sendTexturePackage(glFramebuffer &fb_left, glFramebuffer &fb_right,
+  void sendStereoTexture(glFramebuffer &fb_left, glFramebuffer &fb_right,
                           const uint width, const uint height,
                           const uint meta_data = 0);
-  void sendTexturePackage(const uint color_left, const uint color_right,
+  void sendStereoTexture(const uint color_left, const uint color_right,
                           const uint depth_left, const uint depth_right,
                           const uint width, const uint height,
                           const uint meta_data = 0);
@@ -113,11 +131,7 @@ struct DataSender {
   DataSender();
   ~DataSender();
 
-  void start(const std::string &networkAddress,
-             const std::string &filterName = "",
-             Endpoint socket_type =
-                 Endpoint::Connect); // address following zmq conventions, e.g.
-                                     // "tcp://localhost:1234"
+  void start(const std::string &filterName = "", Endpoint socket_type = Endpoint::Bind);
   void stop();
 
   bool sendData(std::string const &v);
@@ -133,21 +147,14 @@ struct DataSender {
 struct DataReceiver {
   ~DataReceiver();
 
-  void start(const std::string &networkAddress, const std::string &filterName,
-             Endpoint socket_type =
-                 Endpoint::Bind); // address following zmq conventions, e.g.
-                                  // "tcp://localhost:1234"
+  bool start(const std::string &filterName, Endpoint socket_type = Endpoint::Connect);
   void stop();
 
   template <typename Datatype> bool getData(Datatype &v);
+  std::optional<std::string> getDataCopy();
 
-  std::string m_msgData = "";
-  std::string m_msgDataCopy = "";
-  bool getDataCopy();
-  std::thread m_thread;
-  std::mutex m_mutex;
-  std::atomic<bool> m_threadRunning = false;
-  std::atomic_flag m_newDataFlag;
+  std::shared_ptr<void> m_receiver;
+  std::string m_filterName;
 };
 
 // all vectors, matrices and quaternions follow OpenGL and GLM conventions
@@ -161,10 +168,13 @@ struct vec4 {
   float w = 0.0f;
 };
 vec4 operator+(vec4 const &lhs, vec4 const &rhs);
+vec4 operator+=(vec4&lhs, vec4 const &rhs);
 vec4 operator-(vec4 const &lhs, vec4 const &rhs);
 vec4 operator*(vec4 const &lhs, vec4 const &rhs);
 vec4 operator*(vec4 const &v, const float s);
 vec4 operator*(const float s, const vec4 v);
+bool operator==(const vec4& l, const vec4& r);
+bool operator!=(const vec4& l, const vec4& r);
 
 // column major matrix built from column vectors: (v1, v2, v3, v4)
 struct mat4 {
@@ -240,6 +250,10 @@ struct BoundingBoxCorners {
   vec4 min;
   vec4 max;
 
+  vec4 diagonal() const {
+      return max - min;
+  }
+
   // returns vector V such that 'V + x' moves vector x to centered bbox
   // coordinates
   vec4 getCenteringVector() const {
@@ -309,3 +323,6 @@ make_sendData(vec4);
 #undef make_sendData
 
 } // namespace interop
+
+namespace mint = interop;
+

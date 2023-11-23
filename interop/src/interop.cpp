@@ -58,7 +58,7 @@ MAKE_GL_CALL(glActiveTexture, void, GLenum texture)
 // MAKE_GL_CALL(glBindTexture, void, GLenum target, GLuint texture)
 MAKE_GL_CALL(glUniform1i, void, GLint location, GLint v0)
 MAKE_GL_CALL(glUniform2i, void, GLint location, GLint v0, GLint v1)
-MAKE_GL_CALL(glCopyTexSubImage2DEXT, void, GLenum, GLint, GLint, GLint, GLint,
+MAKE_GL_CALL(glCopyTexSubImage2D, void, GLenum, GLint, GLint, GLint, GLint,
              GLint, GLsizei, GLsizei)
 
 MAKE_GL_CALL(glGenFramebuffersEXT, void, GLsizei n, GLuint *ids)
@@ -109,7 +109,7 @@ void loadGlExtensions() {
   // GET_GL_CALL(glBindTexture)
   GET_GL_CALL(glUniform1i)
   GET_GL_CALL(glUniform2i)
-  GET_GL_CALL(glCopyTexSubImage2DEXT)
+  GET_GL_CALL(glCopyTexSubImage2D)
 
   GET_GL_CALL(glGenFramebuffersEXT)
   GET_GL_CALL(glBindFramebufferEXT)
@@ -119,7 +119,9 @@ void loadGlExtensions() {
   GET_GL_CALL(glBlitFramebufferEXT)
 }
 
-static zmq::context_t g_zmqContext{1};
+static zmq::context_t g_zmqContext{};
+
+static std::string mint_lib_identity{"mint Minimal Interoperation Lib"};
 } // namespace
 
 static const void savePreviousFbo(interop::glFramebuffer *fbo) {
@@ -141,7 +143,57 @@ static const void restorePreviousFbo(interop::glFramebuffer *fbo) {
     fbo->m_previousViewport[i] = 0;
 }
 
-void interop::init() { loadGlExtensions(); }
+struct Addresses {
+    std::string send;
+    std::string receive;
+};
+
+struct Protocol {
+    std::vector<Addresses> steering_rendering;
+};
+
+static const std::vector<Protocol> protocol_addresses = {
+    // IPC
+    Protocol{{
+        {"ipc:///tmp/mint_steering_send", "ipc:///tmp/mint_steering_receive"}/*steering send/receive*/,
+        {"ipc:///tmp/mint_steering_receive", "ipc:///tmp/mint_steering_send"}/*rendering send/receive*/,
+    }},
+    // TCP
+    Protocol{{
+        {"tcp://127.0.0.1:12345", "tcp://localhost:12346"}/*steering send/receive*/,
+        {"tcp://127.0.0.1:12346", "tcp://localhost:12345"}/*rendering send/receive*/,
+    }},
+};
+
+static const std::string texture_sharing_address = "/mint/texturesharing";
+
+static Addresses session_addresses;
+
+std::string to_string(interop::ImageType side) {
+    std::string ret;
+
+    switch (side) {
+    case interop::ImageType::LeftEye:
+        ret = "Left";
+        break;
+    case interop::ImageType::RightEye:
+        ret = "Right";
+        break;
+    case interop::ImageType::SingleStereo:
+        ret = "SingleStereo";
+        break;
+    default:
+        break;
+    }
+
+    return ret;
+}
+
+void interop::init(Role r, Protocol p) {
+    loadGlExtensions();
+
+    session_addresses = protocol_addresses[static_cast<unsigned int>(p)].steering_rendering[static_cast<unsigned int>(r)];
+}
 
 // GL functions are presented by Spout!
 void interop::glFramebuffer::init(uint width, uint height) {
@@ -247,6 +299,10 @@ interop::TextureSender::TextureSender() {
 
 interop::TextureSender::~TextureSender() { m_sender = nullptr; }
 
+void interop::TextureSender::init(ImageType type, std::string name, uint width, uint height) {
+    this->init(name + to_string(type), width, height);
+}
+
 void interop::TextureSender::init(std::string name, uint width, uint height) {
   if (name.size() == 0 || name.size() > 256)
     return;
@@ -257,7 +313,8 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
   if (!m_sender)
     return;
 
-  m_name = name;
+  m_name = texture_sharing_address + "/" + name;
+
   m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
   m_width = width;
@@ -322,8 +379,16 @@ interop::TextureReceiver::TextureReceiver() {
 
 interop::TextureReceiver::~TextureReceiver() { m_receiver = nullptr; }
 
+void interop::TextureReceiver::init(ImageType type, std::string name) {
+  this->init(name + to_string(type));
+}
+
 void interop::TextureReceiver::init(std::string name) {
-  m_name = name;
+  if (name.size() == 0 || name.size() > 256)
+    return;
+
+  m_name = texture_sharing_address + "/" + name;
+  m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
   m_spout->SetCPUmode(false);
   m_spout->SetMemoryShareMode(false);
@@ -361,6 +426,9 @@ void interop::TextureReceiver::receiveTexture() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glBindTexture(GL_TEXTURE_2D, 0);
   };
+
+  glFramebuffer fbo_backup;
+  savePreviousFbo(&fbo_backup);
 
   if (!m_texture_handle) {
     glGenTextures(1, &m_texture_handle);
@@ -402,32 +470,33 @@ void interop::TextureReceiver::receiveTexture() {
   mglBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
   glBindTexture(GL_TEXTURE_2D, 0);
   m_spout->UnBindSharedTexture();
+
+  restorePreviousFbo(&fbo_backup);
 }
 #undef m_spout
 
-interop::TexturePackageSender::TexturePackageSender() {}
-interop::TexturePackageSender::~TexturePackageSender() {}
+interop::StereoTextureSender::StereoTextureSender() {}
+interop::StereoTextureSender::~StereoTextureSender() {}
 
-void interop::TexturePackageSender::init(std::string name, uint width,
-                                         uint height) {
-  m_name = name;
+void interop::StereoTextureSender::init(std::string name, uint width, uint height) {
+
   m_width = width;
   m_height = height;
 
   m_hugeFbo.init();
-  m_hugeTextureSender.init(m_name);
+  m_hugeTextureSender.init(interop::ImageType::SingleStereo, name, width, height);
   this->initGLresources();
 
   this->makeHugeTexture(m_width, m_height);
 }
 
-void interop::TexturePackageSender::destroy() {
+void interop::StereoTextureSender::destroy() {
   m_hugeFbo.destroy();
   m_hugeTextureSender.destroy();
   this->destroyGLresources();
 }
 
-void interop::TexturePackageSender::makeHugeTexture(const uint originalWidth,
+void interop::StereoTextureSender::makeHugeTexture(const uint originalWidth,
                                                     const uint originalHeight) {
   m_hugeWidth = originalWidth * 2;
   m_hugeHeight = originalHeight * 2;
@@ -437,17 +506,17 @@ void interop::TexturePackageSender::makeHugeTexture(const uint originalWidth,
                                     m_hugeHeight); // resizes sender texture
 }
 
-void interop::TexturePackageSender::sendTexturePackage(glFramebuffer &fb_left,
+void interop::StereoTextureSender::sendStereoTexture(glFramebuffer &fb_left,
                                                        glFramebuffer &fb_right,
                                                        const uint width,
                                                        const uint height,
                                                        const uint meta_data) {
-  this->sendTexturePackage(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8,
+  this->sendStereoTexture(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8,
                            fb_left.m_glTextureDepth, fb_right.m_glTextureDepth,
                            width, height, meta_data);
 }
 
-void interop::TexturePackageSender::sendTexturePackage(
+void interop::StereoTextureSender::sendStereoTexture(
     const uint color_left, const uint color_right, const uint depth_left,
     const uint depth_right, const uint width, const uint height,
     const uint meta_data) {
@@ -460,7 +529,7 @@ void interop::TexturePackageSender::sendTexturePackage(
   m_hugeTextureSender.sendTexture(m_hugeFbo);
 }
 
-void interop::TexturePackageSender::initGLresources() {
+void interop::StereoTextureSender::initGLresources() {
   const char *vertex_shader_source =
       R"(
 	#version 400
@@ -571,12 +640,12 @@ void interop::TexturePackageSender::initGLresources() {
   mglGenVertexArrays(1, &m_vao);
 }
 
-void interop::TexturePackageSender::destroyGLresources() {
+void interop::StereoTextureSender::destroyGLresources() {
   mglDeleteProgram(m_shader);
   mglDeleteVertexArrays(1, &m_vao);
 }
 
-void interop::TexturePackageSender::blitTextures(
+void interop::StereoTextureSender::blitTextures(
     const uint color_left_texture, const uint color_right_texture,
     const uint depth_left_texture, const uint depth_right_texture,
     const uint width, const uint height, const uint meta_data) {
@@ -615,25 +684,27 @@ void interop::TexturePackageSender::blitTextures(
                                              // before binding texture
 }
 
-#define m_socket (static_cast<zmq::socket_t *>(m_sender.get()))
+#define m_socket (*static_cast<zmq::socket_t *>(m_sender.get()))
 interop::DataSender::DataSender() {}
 interop::DataSender::~DataSender() {}
 
-void interop::DataSender::start(const std::string &networkAddress,
-                                std::string const &filterName,
+void interop::DataSender::start(std::string const &filterName,
                                 Endpoint socket_type) {
+  
+  const auto& networkAddress = session_addresses.send;
+
   m_filterName = filterName;
 
   m_sender =
       std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::pub);
-  auto &socket = *m_socket;
+  auto &socket = m_socket;
 
   // if (socket.connected())
   //	return;
 
   try {
-    // std::string identity{"InteropLib"};
-    // socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
+     socket.setsockopt(ZMQ_IDENTITY, mint_lib_identity.data(), mint_lib_identity.size());
+
     switch (socket_type) {
     case interop::Endpoint::Bind:
       socket.bind(networkAddress);
@@ -649,8 +720,8 @@ void interop::DataSender::start(const std::string &networkAddress,
   }
 }
 void interop::DataSender::stop() {
-  if (m_socket->connected())
-    m_socket->close();
+  if (m_socket.connected())
+    m_socket.close();
 }
 
 bool interop::DataSender::sendData(std::string const &v) {
@@ -658,7 +729,7 @@ bool interop::DataSender::sendData(std::string const &v) {
 }
 bool interop::DataSender::sendData(std::string const &filterName,
                                    std::string const &v) {
-  auto &socket = *m_socket;
+  auto &socket = m_socket;
 
   zmq::message_t address_msg{filterName.data(), filterName.size()};
   zmq::message_t data_msg{v.data(), v.size()};
@@ -686,127 +757,80 @@ bool interop::DataSender::sendData(std::string const &filterName,
 // const& v);
 #undef m_socket
 
-namespace {
-void runThread_DataReceiver(interop::DataReceiver *dr,
-                            const std::string &networkAddress,
-                            const std::string &filterName,
-                            interop::Endpoint const socket_type) {
-  if (dr == nullptr)
-    return;
+interop::DataReceiver::~DataReceiver() { stop(); }
 
-  auto &mutex = dr->m_mutex;
-  auto &threadRunning = dr->m_threadRunning;
-  auto &newDataFlag = dr->m_newDataFlag;
-  newDataFlag.test_and_set(); // sets true
-  std::string &msgData = dr->m_msgData;
-  std::string filter = filterName;
+#define m_socket (*static_cast<zmq::socket_t *>(m_receiver.get()))
+bool interop::DataReceiver::start(const std::string &filterName,
+                                  Endpoint socket_type) {
 
-  zmq::socket_t socket{g_zmqContext, ZMQ_SUB};
+  const auto& networkAddress = session_addresses.receive;
+
+  m_filterName = filterName;
+
+  m_receiver = 
+      std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::sub);
+
+  auto& socket = m_socket;
 
   try {
-    // std::string identity{"InteropLib"};
-    // socket.setsockopt(ZMQ_IDENTITY, identity.data(), identity.size());
-    // socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message,
-    // drop old ones
+    socket.setsockopt(ZMQ_IDENTITY, mint_lib_identity.data(), mint_lib_identity.size());
+
+    //socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message,
+
     socket.setsockopt(
-        ZMQ_SUBSCRIBE, filter.data(),
-        filter.size()); // only receive messages with prefix given by filterName
+        ZMQ_SUBSCRIBE, m_filterName.data(),
+        m_filterName.size()); // only receive messages with prefix given by filterName
+
     socket.setsockopt(ZMQ_RCVTIMEO,
-                      100 /*ms*/); // timeout after not receiving messages for
-                                   // tenth of a second
+                      1/*ms*/); // timeout after not receiving messages
+
     switch (socket_type) {
     case interop::Endpoint::Bind:
-      socket.bind(networkAddress);
+      m_socket.bind(networkAddress);
       break;
     case interop::Endpoint::Connect:
-      socket.connect(networkAddress);
+      m_socket.connect(networkAddress);
       break;
     }
   } catch (std::exception &e) {
     std::cout << "InteropLib: connecting zmq socket failed: " << e.what()
               << std::endl;
-    return;
+    return false;
   }
-  threadRunning.store(true);
 
-  zmq::message_t address_msg;
-  zmq::message_t content_msg;
+  return true;
+}
 
-  while (threadRunning) {
+void interop::DataReceiver::stop() {
+  m_socket.close();
+}
 
-    int more = 0;
-    int filterEmpty = filter.empty();
+std::optional<std::string> interop::DataReceiver::getDataCopy() {
+    auto& socket = m_socket;
 
-    if (!filterEmpty) {
-      if (!socket.recv(&address_msg))
-        continue;
-      else
-        more = socket.getsockopt<int>(ZMQ_RCVMORE);
-    }
+    zmq::message_t address_msg;
+    zmq::recv_result_t result = socket.recv(address_msg);
+    if (!result.has_value())
+        return std::nullopt;
 
-    if (filterEmpty || more) {
-      if (!socket.recv(&content_msg))
-        continue;
-    } else
-      continue;
+    zmq::message_t content_msg;
+    result = socket.recv(content_msg);
+    if(!result.has_value())
+        return std::nullopt;
 
     const bool log = false;
     if (log) {
       std::cout << "zmq received address: "
-                << std::string(static_cast<char *>(address_msg.data()),
-                               address_msg.size())
+                << address_msg.to_string_view()
                 << std::endl;
       std::cout << "zmq received content: "
-                << std::string(static_cast<char *>(content_msg.data()),
-                               content_msg.size())
+                << content_msg.to_string_view()
                 << std::endl;
     }
 
-    // store message content for user to retrieve+parse
-    std::lock_guard<std::mutex> lock{mutex};
-    msgData.assign(static_cast<char *>(content_msg.data()), content_msg.size());
-    newDataFlag.clear(
-        std::memory_order_release); // Sets false. All writes in the current
-                                    // thread are visible in other threads that
-                                    // acquire the same atomic variable
-  }
-
-  socket.close();
+    return std::make_optional(std::string{content_msg.to_string_view()});
 }
-} // namespace
-
-interop::DataReceiver::~DataReceiver() { stop(); }
-
-void interop::DataReceiver::start(const std::string &networkAddress,
-                                  const std::string &filterName,
-                                  Endpoint socket_type) {
-  if (m_threadRunning)
-    return;
-
-  m_thread = std::thread(runThread_DataReceiver, this, networkAddress,
-                         filterName, socket_type);
-}
-
-void interop::DataReceiver::stop() {
-  if (m_threadRunning) {
-    m_threadRunning.store(false);
-    m_thread.join();
-  }
-}
-
-bool interop::DataReceiver::getDataCopy() {
-  if (!m_newDataFlag.test_and_set(
-          std::memory_order_acquire)) { // Sets true, returns previous value.
-                                        // All writes in other threads that
-                                        // release the same atomic variable are
-                                        // visible in the current thread.
-    std::lock_guard<std::mutex> lock{m_mutex};
-    m_msgDataCopy.assign(m_msgData);
-    return true;
-  }
-
-  return false;
-}
+#undef m_socket
 
 // template <typename Datatype>
 // Datatype interop::DataReceiver::getData() {
@@ -961,8 +985,8 @@ void from_json(const json &j, DatasetRenderConfiguration &v) {
 #define make_dataGet(DataTypeName)                                             \
   template <>                                                                  \
   bool interop::DataReceiver::getData<DataTypeName>(DataTypeName & v) {        \
-    if (this->getDataCopy()) {                                                 \
-      auto &byteData = m_msgDataCopy;                                          \
+    if (auto data = this->getDataCopy(); data.has_value()) {                   \
+      auto &byteData = data.value();                                          \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
         v = j.get<DataTypeName>();                                             \
@@ -989,8 +1013,8 @@ make_dataGet(interop::vec4);
 #define make_scalar_get(DataTypeName)                                          \
   template <>                                                                  \
   bool interop::DataReceiver::getData<DataTypeName>(DataTypeName & v) {        \
-    if (this->getDataCopy()) {                                                 \
-      auto &byteData = m_msgDataCopy;                                          \
+    if (auto data = this->getDataCopy(); data.has_value()) {                   \
+      auto &byteData = data.value();                                           \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
         v = j["value"];                                                        \
@@ -1040,6 +1064,13 @@ interop::vec4 interop::operator+(interop::vec4 const &lhs,
       lhs.w + rhs.w,
   };
 }
+interop::vec4 interop::operator+=(vec4& lhs, vec4 const& rhs) {
+  lhs.x += rhs.x;
+  lhs.y += rhs.y;
+  lhs.z += rhs.z;
+  lhs.w += rhs.w;
+  return lhs;
+}
 interop::vec4 interop::operator-(interop::vec4 const &lhs,
                                  interop::vec4 const &rhs) {
   return vec4{
@@ -1068,4 +1099,14 @@ interop::vec4 interop::operator*(interop::vec4 const &v, const float s) {
 }
 interop::vec4 interop::operator*(const float s, const interop::vec4 v) {
   return v * s;
+}
+bool interop::operator==(const vec4& l, const vec4& r) {
+  return
+      l.x == r.x &&
+      l.y == r.y &&
+      l.z == r.z &&
+      l.w == r.w;
+}
+bool interop::operator!=(const vec4& l, const vec4& r) {
+    return !(l == r);
 }
