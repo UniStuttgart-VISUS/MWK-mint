@@ -10,6 +10,12 @@
 
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <chrono>
+#include <thread>
+#include <algorithm>
+
+#include <CLI/CLI.hpp>
 
 #include <interop.hpp>
 glm::vec4 toGlm(const mint::vec4& v) {
@@ -181,8 +187,71 @@ void APIENTRY opengl_debug_message_callback(
 				std::cout << "OpenGL Error: " << message << std::endl;
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
+	CLI::App app("mint rendering");
+
+	mint::DataProtocol zmq_protocol = mint::DataProtocol::IPC;
+	std::map<std::string, mint::DataProtocol> map_zmq = {{"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP}};
+	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
+		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+
+	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
+	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
+	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
+		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+
+	std::filesystem::path rendering_fps_target_ms_file = "mint_target_fps.txt";
+	auto* fps_file_opt = app.add_option("-f,--render-file", rendering_fps_target_ms_file, "File containing target frame time in miliseconds, as in --render-ms option");
+	// todo
+
+	float rendering_fps_target_ms = 0.0;
+	auto* fps_opt_opt = app.add_option("-r,--render-ms", rendering_fps_target_ms, "Frame time in miliseconds to target via render loop delay");
+	// todo
+
+	CLI11_PARSE(app, argc, argv);
+
+	{
+		bool option_used_file_fps = fps_file_opt->count() > 0;
+		bool option_used_cli_fps = fps_opt_opt->count() > 0;
+
+		auto cli_fps_target = rendering_fps_target_ms;
+		float file_fps_target = [&]() -> float {
+			std::ifstream file{rendering_fps_target_ms_file};
+
+			// if loaded file implicitly
+			if (!file.good()) {
+				return -1.0f;
+			}
+
+			if (option_used_file_fps && !file.good()) {
+				std::cout << "ERROR opening target render fps file: " << rendering_fps_target_ms_file << std::endl;
+				std::exit(EXIT_FAILURE);
+			}
+
+			float file_delay = -1.0f;
+			file >> file_delay;
+
+			return file_delay; 
+		}();
+
+		if (option_used_file_fps && !(file_fps_target >= 0.0f)) {
+			std::cout << "ERROR reading value from render fps file: " << rendering_fps_target_ms_file << std::endl;
+			std::exit(EXIT_FAILURE);
+		}
+
+		if(option_used_file_fps && file_fps_target >= 0.0f)
+			rendering_fps_target_ms = file_fps_target;
+
+		if(file_fps_target >= 0.0f)
+			rendering_fps_target_ms = file_fps_target;
+
+		if(option_used_cli_fps)
+			rendering_fps_target_ms = cli_fps_target;
+
+		std::cout << "rendering with fps target: " << rendering_fps_target_ms << " ms" << std::endl;
+	}
+
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;
 	GLint mvp_location, vpos_location, vcol_location;
@@ -195,7 +264,8 @@ int main(void)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	int initialWidth = 640;
 	int initialHeight = 480;
-	window = glfwCreateWindow(initialWidth, initialHeight, "mint rendering example", NULL, NULL);
+	std::string window_name = "mint rendering";
+	window = glfwCreateWindow(initialWidth, initialHeight, window_name.c_str(), NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -254,7 +324,7 @@ int main(void)
 	bbox.unbind();
 	bbox.setElements(bboxElements);
 
-	mint::init(mint::Role::Rendering, mint::Protocol::IPC);
+	mint::init(mint::Role::Rendering, zmq_protocol, spout_protocol);
 
 	mint::glFramebuffer fbo_left;
 	fbo_left.init();
@@ -298,8 +368,42 @@ int main(void)
 	int width = 800, height = 600;
 	glfwGetFramebufferSize(window, &width, &height);
 
+	using namespace std::chrono_literals;
+	using FpMilliseconds = std::chrono::duration<float, std::chrono::milliseconds::period>;
+	auto program_start_time = std::chrono::high_resolution_clock::now();
+	auto current_time = std::chrono::high_resolution_clock::now();
+
+	std::vector<float> frame_durations(60, 0.0f);
+	float frame_durations_size = static_cast<float>(frame_durations.size());
+	unsigned int frame_timing_index = 0;
+	float last_fps_wait = 0.0f;
+
+	auto fps_average = [&]() {
+		return std::accumulate(frame_durations.begin(), frame_durations.end(), 0.0f) / frame_durations_size;
+	};
+
 	while (!glfwWindowShouldClose(window))
 	{
+		auto last_time = current_time;
+		current_time = std::chrono::high_resolution_clock::now();
+		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
+		frame_durations[frame_timing_index] = last_frame_duration;
+
+		if (rendering_fps_target_ms > 0.0f) {
+			auto diff = rendering_fps_target_ms - last_frame_duration;
+			last_fps_wait += diff * 0.1;
+			//std::cout << "diff " << diff << std::endl;
+			std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(last_fps_wait));
+		}
+
+		if(frame_timing_index == 0){
+			float frame_ms = fps_average();
+			std::string fps_info = " | " + std::to_string(frame_ms) + " ms/f | " + std::to_string(1000.0f / frame_ms) + " fps" ;
+			std::string title = window_name + fps_info;
+			glfwSetWindowTitle(window, title.c_str());
+		}
+		frame_timing_index = (frame_timing_index + 1) % frame_durations.size();
+
 		ratio = width / (float) height;
 		// default framebuffer
 		glViewport(0, 0, width, height);
@@ -400,6 +504,8 @@ int main(void)
 
 	quad.destroy();
 	bbox.destroy();
+
+	std::cout << "mint rendering exit \naverage frame ms: " << fps_average() << std::endl;
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

@@ -148,18 +148,18 @@ struct Addresses {
     std::string receive;
 };
 
-struct Protocol {
+struct DataProtocol {
     std::vector<Addresses> steering_rendering;
 };
 
-static const std::vector<Protocol> protocol_addresses = {
+static const std::vector<DataProtocol> protocol_addresses = {
     // IPC
-    Protocol{{
+    DataProtocol{{
         {"ipc:///tmp/mint_steering_send", "ipc:///tmp/mint_steering_receive"}/*steering send/receive*/,
         {"ipc:///tmp/mint_steering_receive", "ipc:///tmp/mint_steering_send"}/*rendering send/receive*/,
     }},
     // TCP
-    Protocol{{
+    DataProtocol{{
         {"tcp://127.0.0.1:12345", "tcp://localhost:12346"}/*steering send/receive*/,
         {"tcp://127.0.0.1:12346", "tcp://localhost:12345"}/*rendering send/receive*/,
     }},
@@ -168,6 +168,7 @@ static const std::vector<Protocol> protocol_addresses = {
 static const std::string texture_sharing_address = "/mint/texturesharing";
 
 static Addresses session_addresses;
+static interop::ImageProtocol session_texture_sharing;
 
 std::string to_string(interop::ImageType side) {
     std::string ret;
@@ -189,10 +190,11 @@ std::string to_string(interop::ImageType side) {
     return ret;
 }
 
-void interop::init(Role r, Protocol p) {
+void interop::init(Role r, DataProtocol dp, ImageProtocol ip) {
     loadGlExtensions();
 
-    session_addresses = protocol_addresses[static_cast<unsigned int>(p)].steering_rendering[static_cast<unsigned int>(r)];
+    session_addresses = protocol_addresses[static_cast<unsigned int>(ip)].steering_rendering[static_cast<unsigned int>(r)];
+    session_texture_sharing = ip;
 }
 
 // GL functions are presented by Spout!
@@ -321,6 +323,11 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
   m_height = height;
 
   m_spout->SetCPUmode(false);
+
+  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
+  if (!m_spout->SetMemoryShareMode(spout_use_ram_mode))
+      std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
+
   m_spout->SetMemoryShareMode(false);
   m_spout->SetDX9(false);
   // DXGI_FORMAT_R8G8B8A8_UNORM; // default DX11 format - compatible with DX9
@@ -391,7 +398,11 @@ void interop::TextureReceiver::init(std::string name) {
   m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
   m_spout->SetCPUmode(false);
-  m_spout->SetMemoryShareMode(false);
+
+  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
+  if (!m_spout->SetMemoryShareMode(spout_use_ram_mode))
+      std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
+
   m_spout->SetDX9(false);
   bool active = false;
   unsigned int w, h;

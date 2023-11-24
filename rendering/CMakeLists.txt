@@ -45,7 +45,10 @@ add_subdirectory(external/glm/)
 
 #add_library(interop STATIC IMPORTED ../interop)
 
-set(LINK_LIBS_EXTERNAL interop glad glm glfw ${OPENGL_glu_LIBRARY})
+# CLI11
+add_subdirectory(external/CLI11/)
+
+set(LINK_LIBS_EXTERNAL interop glad glm glfw CLI11 ${OPENGL_glu_LIBRARY})
 set(INCLUDE_LIBS_EXTERNAL ${OPENGL_INCLUDE_DIR})
 	
 # build render app

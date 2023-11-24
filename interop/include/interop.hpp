@@ -14,9 +14,14 @@ enum class Role {
     Rendering,
 };
 
-enum class Protocol {
+enum class DataProtocol {
     IPC,
     TCP,
+};
+
+enum class ImageProtocol {
+    VRAM,
+    RAM,
 };
 
 enum class ImageType {
@@ -25,7 +30,7 @@ enum class ImageType {
     SingleStereo,
 };
 
-void init(Role r, Protocol p = Protocol::IPC);
+void init(Role r, DataProtocol dp = DataProtocol::IPC, ImageProtocol ip = ImageProtocol::VRAM);
 
 struct glFramebuffer {
   void init(uint width = 1, uint height = 1);

@@ -14,6 +14,8 @@
 #include <ctime>
 #include <fstream>
 
+#include <CLI/CLI.hpp>
+
 #include <interop.hpp>
 
 glm::vec4 toGlm(const mint::vec4& v) {
@@ -188,8 +190,28 @@ R"(
 	}
 )";
 
-int main(void)
+int main(int argc, char** argv)
 {
+	CLI::App app("mint steering");
+
+	mint::DataProtocol zmq_protocol = mint::DataProtocol::IPC;
+	std::map<std::string, mint::DataProtocol> map_zmq = {{"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP}};
+	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
+		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+
+	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
+	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
+	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
+		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+
+	std::filesystem::path latency_measure_output_file = "";
+	app.add_option("-f,--latency-file", latency_measure_output_file, "Output file for latency measurements");
+
+	float latency_measure_delay_until_start_sec = 0.0f;
+	app.add_option("--latency-startup", latency_measure_delay_until_start_sec, "If positive, delay in seconds after startup until latency measurements begin");
+
+	CLI11_PARSE(app, argc, argv);
+
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;
 	glfwSetErrorCallback(glfw_error_callback);
@@ -201,7 +223,7 @@ int main(void)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	int initialWidth = 640;
 	int initialHeight = 480;
-	window = glfwCreateWindow(initialWidth, initialHeight, "mint steering example", NULL, NULL);
+	window = glfwCreateWindow(initialWidth, initialHeight, "mint steering", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -301,8 +323,6 @@ int main(void)
 
 	bool latency_measure_active = false;
 
-	float latency_measure_delay_until_start_sec = 10;
-
 	std::vector<Vertex> quadVertices;
 	RenderVertices quad;
 	quad.init(quadVertices);
@@ -310,7 +330,7 @@ int main(void)
 	//registerVertexAttributes();
 	quad.unbind();
 
-	mint::init(mint::Role::Steering, mint::Protocol::IPC);
+	mint::init(mint::Role::Steering, zmq_protocol, spout_protocol);
 
 	mint::glFramebuffer fbo;
 	fbo.init();
@@ -446,7 +466,7 @@ int main(void)
 		glUniform1i(uniform_texture_location, binding_point);
 
 		// start latency measurements
-		if (has_bbox && !latency_measure_active && FpMilliseconds(current_time - program_start_time).count() > latency_measure_delay_until_start_sec && latency_measurements_index == 0) {
+		if (latency_measure_delay_until_start_sec > 0.0f && has_bbox && !latency_measure_active && FpMilliseconds(current_time - program_start_time).count() > latency_measure_delay_until_start_sec && latency_measurements_index == 0) {
 			latency_measure_active = true;
 		}
 		// stop latency measurements
@@ -477,19 +497,19 @@ int main(void)
 
 			}
 
-			// write latency_measurements to file
-			std::time_t time = std::time({});
-			char timeString[std::size("yyyy-mm-dd-hh-mm")];
-			std::strftime(std::data(timeString), std::size(timeString), "%F-%H-%M", std::localtime(&time));
-
-			std::string filename = "mint_steering_frame_latency_measurements_" + std::string{ timeString } + ".txt";
-			std::ofstream file{filename};
-
-			if(!file.good()){
-					std::cout << "ERROR: COULD NOT OPEN FILE " << filename << std::endl;
-					std::exit(EXIT_FAILURE);
+			if (latency_measure_output_file.empty()) {
+				std::time_t time = std::time({});
+				char timeString[std::size("yyyy-mm-dd-hh-mm")];
+				std::strftime(std::data(timeString), std::size(timeString), "%F-%H-%M", std::localtime(&time));
+				latency_measure_output_file = "mint_steering_frame_latency_measurements_" + std::string{ timeString } + ".txt";
 			}
 
+			std::ofstream file{latency_measure_output_file};
+			if(!file.good()){
+					std::cout << "\n" << result << "\n" << std::endl;
+					std::cout << "ERROR: COULD NOT OPEN FILE " << latency_measure_output_file.string() << std::endl;
+					std::exit(EXIT_FAILURE);
+			}
 			file << result;
 		}
 

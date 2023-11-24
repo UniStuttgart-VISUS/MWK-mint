@@ -16,3 +16,6 @@
 [submodule "interop/external/json"]
 	path = interop/external/json
 	url = https://github.com/nlohmann/json
+[submodule "rendering/external/CLI11"]
+	path = rendering/external/CLI11
+	url = https://github.com/CLIUtils/CLI11
