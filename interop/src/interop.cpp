@@ -346,7 +346,7 @@ void interop::TextureSender::destroy() {
   m_name = "";
 }
 
-bool interop::TextureSender::resizeTexture(uint width, uint height) {
+bool interop::TextureSender::resize(uint width, uint height) {
   if (!m_sender)
     return false;
 
@@ -368,7 +368,7 @@ void interop::TextureSender::send(uint textureHandle, uint width,
   if (textureHandle == 0)
     return;
 
-  if (!resizeTexture(width, height))
+  if (!resize(width, height))
     return;
 
   m_spout->SendTexture(textureHandle, GL_TEXTURE_2D, m_width, m_height);
@@ -513,7 +513,7 @@ void interop::StereoTextureSender::makeHugeTexture(const uint originalWidth,
   m_hugeHeight = originalHeight * 2;
 
   m_hugeFbo.resizeTexture(m_hugeWidth, m_hugeHeight);
-  m_hugeTextureSender.resizeTexture(m_hugeWidth,
+  m_hugeTextureSender.resize(m_hugeWidth,
                                     m_hugeHeight); // resizes sender texture
 }
 
@@ -770,76 +770,99 @@ bool interop::DataSender::send(std::string const &filterName,
 
 interop::DataReceiver::~DataReceiver() { stop(); }
 
-#define m_socket (*static_cast<zmq::socket_t *>(m_receiver.get()))
+//#define m_socket (*static_cast<zmq::socket_t *>(m_receiver.get()))
 bool interop::DataReceiver::start(const std::string &filterName,
                                   Endpoint socket_type) {
 
-  const auto& networkAddress = session_addresses.receive;
+  auto networkAddress = session_addresses.receive;
 
   m_filterName = filterName;
 
-  m_receiver = 
-      std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::sub);
+  m_worker_signal.test_and_set();
 
-  auto& socket = m_socket;
+  m_worker = std::thread{[&, filterName, networkAddress, socket_type]() {
+      zmq::socket_t socket(g_zmqContext, zmq::socket_type::sub);
 
-  try {
-    socket.setsockopt(ZMQ_IDENTITY, mint_lib_identity.data(), mint_lib_identity.size());
+    try {
+      socket.setsockopt(ZMQ_IDENTITY, mint_lib_identity.data(), mint_lib_identity.size());
 
-    //socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message,
+      //socket.setsockopt(ZMQ_CONFLATE, 1); // keep only most recent message, dont work with SUB pattern
 
-    socket.setsockopt(
-        ZMQ_SUBSCRIBE, m_filterName.data(),
-        m_filterName.size()); // only receive messages with prefix given by filterName
+      socket.setsockopt(
+          ZMQ_SUBSCRIBE, filterName.data(),
+          filterName.size()); // only receive messages with prefix given by filterName
 
-    socket.setsockopt(ZMQ_RCVTIMEO,
-                      1/*ms*/); // timeout after not receiving messages
+      socket.setsockopt(ZMQ_RCVTIMEO,0/*ms*/); // timeout after not receiving messages
 
-    switch (socket_type) {
-    case interop::Endpoint::Bind:
-      m_socket.bind(networkAddress);
-      break;
-    case interop::Endpoint::Connect:
-      m_socket.connect(networkAddress);
-      break;
+      switch (socket_type) {
+      case interop::Endpoint::Bind:
+        socket.bind(networkAddress);
+        break;
+      case interop::Endpoint::Connect:
+        socket.connect(networkAddress);
+        break;
+      }
+    } catch (std::exception &e) {
+      std::cout << "InteropLib: connecting zmq socket failed: " << e.what()
+                << std::endl;
+      m_worker_result = false;
+      return;
     }
-  } catch (std::exception &e) {
-    std::cout << "InteropLib: connecting zmq socket failed: " << e.what()
-              << std::endl;
-    return false;
-  }
+
+    zmq::message_t address_msg;
+    zmq::message_t content_msg;
+    zmq::recv_result_t result;
+
+    while (m_worker_signal.test_and_set()) {
+
+        if (!socket.recv(address_msg, zmq::recv_flags::dontwait))
+            continue;
+
+        if (!address_msg.more() || !socket.recv(content_msg, zmq::recv_flags::dontwait))
+            continue;
+
+        const bool log = false;
+        if (log) {
+          std::cout << "zmq received address: "
+                    << address_msg.to_string_view()
+                    << std::endl;
+          std::cout << "zmq received content: "
+                    << content_msg.to_string_view()
+                    << std::endl;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            m_messages[address_msg.to_string()] = content_msg.to_string();
+        }
+    }
+    
+    socket.close();
+    m_worker_result = true;
+  }};
 
   return true;
 }
 
 void interop::DataReceiver::stop() {
-  m_socket.close();
+    m_worker_signal.clear();
+    m_worker.join();
 }
 
-std::optional<std::string> interop::DataReceiver::receiveCopy() {
-    auto& socket = m_socket;
+std::optional<std::string> interop::DataReceiver::receiveCopy(const std::string &filterName) {
+    auto f = filterName.empty() ? m_filterName : filterName;
 
-    zmq::message_t address_msg;
-    zmq::recv_result_t result = socket.recv(address_msg);
-    if (!result.has_value())
-        return std::nullopt;
+    std::optional<std::string> r = std::nullopt;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto found = m_messages.find(f);
 
-    zmq::message_t content_msg;
-    result = socket.recv(content_msg);
-    if(!result.has_value())
-        return std::nullopt;
-
-    const bool log = false;
-    if (log) {
-      std::cout << "zmq received address: "
-                << address_msg.to_string_view()
-                << std::endl;
-      std::cout << "zmq received content: "
-                << content_msg.to_string_view()
-                << std::endl;
+        if (found != m_messages.end()) {
+            r = std::make_optional(found->second);
+        }
     }
 
-    return std::make_optional(std::string{content_msg.to_string_view()});
+    return r;
 }
 #undef m_socket
 

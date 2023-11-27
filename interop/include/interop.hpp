@@ -4,6 +4,10 @@
 #include <memory>
 #include <string>
 #include <optional>
+#include <atomic>
+#include <thread>
+#include <unordered_map>
+#include <mutex>
 
 namespace interop {
 
@@ -57,7 +61,7 @@ struct TextureSender {
   void init(std::string name, uint width = 1, uint height = 1);
   void init(ImageType type, std::string name = "", uint width = 1, uint height = 1);
   void destroy();
-  bool resizeTexture(uint width, uint height);
+  bool resize(uint width, uint height);
   void send(uint texture, uint width, uint height);
   void send(glFramebuffer &fb);
 
@@ -152,14 +156,21 @@ struct DataSender {
 struct DataReceiver {
   ~DataReceiver();
 
-  bool start(const std::string &filterName, Endpoint socket_type = Endpoint::Connect);
+  bool start(const std::string &filterName = "", Endpoint socket_type = Endpoint::Connect);
   void stop();
 
   template <typename Datatype> bool receive(Datatype &v);
-  std::optional<std::string> receiveCopy();
+  std::optional<std::string> receiveCopy(const std::string &filterName = "");
 
-  std::shared_ptr<void> m_receiver;
+  //std::shared_ptr<void> m_receiver;
   std::string m_filterName;
+
+  std::thread m_worker;
+  std::atomic_flag m_worker_signal = ATOMIC_FLAG_INIT;
+  std::atomic<bool> m_worker_result{ false };
+
+  std::unordered_map<std::string, std::string> m_messages;
+  std::mutex m_mutex;
 };
 
 // all vectors, matrices and quaternions follow OpenGL and GLM conventions
