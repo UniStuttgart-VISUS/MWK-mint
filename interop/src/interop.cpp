@@ -696,12 +696,17 @@ void interop::StereoTextureSender::blitTextures(
 }
 
 #define m_socket (*static_cast<zmq::socket_t *>(m_sender.get()))
-interop::DataSender::DataSender() {}
+interop::DataSender::DataSender() {
+  m_address = session_addresses.send;
+}
+interop::DataSender::DataSender(std::string const& address) {
+  m_address = address;
+}
 interop::DataSender::~DataSender() {}
 
 void interop::DataSender::start(Endpoint socket_type) {
   
-  const auto& networkAddress = session_addresses.send;
+  const auto& networkAddress = m_address;
 
   m_sender =
       std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::pub);
@@ -760,13 +765,20 @@ bool interop::DataSender::send_raw(
 }
 #undef m_socket
 
+interop::DataReceiver::DataReceiver() {
+  m_address = session_addresses.receive;
+}
+interop::DataReceiver::DataReceiver(std::string const& address) {
+  m_address = address;
+}
+
 interop::DataReceiver::~DataReceiver() { stop(); }
 
 //#define m_socket (*static_cast<zmq::socket_t *>(m_receiver.get()))
 bool interop::DataReceiver::start(const std::string &filterName,
                                   Endpoint socket_type) {
 
-  auto networkAddress = session_addresses.receive;
+  auto networkAddress = m_address;
 
   m_filterName = filterName;
 
@@ -788,7 +800,7 @@ bool interop::DataReceiver::start(const std::string &filterName,
           ZMQ_SUBSCRIBE, filterName.data(),
           filterName.size()); // only receive messages with prefix given by filterName
 
-      socket.setsockopt(ZMQ_RCVTIMEO,0/*ms*/); // timeout after not receiving messages
+      socket.setsockopt(ZMQ_RCVTIMEO,5/*ms*/); // timeout after not receiving messages
 
       switch (socket_type) {
       case interop::Endpoint::Bind:
@@ -811,10 +823,10 @@ bool interop::DataReceiver::start(const std::string &filterName,
 
     while (m_worker_signal.test_and_set()) {
 
-        if (!socket.recv(address_msg, zmq::recv_flags::dontwait))
+        if (!socket.recv(address_msg))// , zmq::recv_flags::dontwait))
             continue;
 
-        if (!address_msg.more() || !socket.recv(content_msg, zmq::recv_flags::dontwait))
+        if (!address_msg.more() || !socket.recv(content_msg))// , zmq::recv_flags::dontwait))
             continue;
 
         const bool log = false;
@@ -1118,6 +1130,22 @@ make_named_send(interop::CameraProjection);
 make_named_send(interop::StereoCameraView);
 make_named_send(interop::StereoCameraViewRelative);
 #undef make_send
+
+#define make_send_scalar(DataTypeName)                                            \
+  template <>                                                                  \
+  bool interop::DataSender::send<DataTypeName>(                            \
+      DataTypeName const &v, std::string const &filterName) {                  \
+    json j;\
+    j["value"] = v;                                                          \
+    const std::string jsonString = j.dump();                                   \
+    return this->send_raw(jsonString, filterName);                             \
+  }
+make_send_scalar(bool);
+make_send_scalar(int);
+make_send_scalar(unsigned int);
+make_send_scalar(float);
+make_send_scalar(double);
+#undef make_send_scalar
 
 
 // interop::vec4 arithmetic operators

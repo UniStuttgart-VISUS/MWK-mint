@@ -202,7 +202,7 @@ int main(int argc, char** argv)
 	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
 	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
 	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
-		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+		->transform(CLI::CheckedTransformer(map_spout, CLI::ignore_case));
 
 	std::filesystem::path latency_measure_output_file = "";
 	app.add_option("-f,--latency-file", latency_measure_output_file, "Output file for latency measurements");
@@ -399,11 +399,16 @@ int main(int argc, char** argv)
 
 	bool has_bbox = false;
 
+	mint::DataReceiver receive_close{"tcp://localhost:55555"};
+	receive_close.start("mintclose", interop::Endpoint::Connect);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		int should_close = 0;
-		if (data_receiver.receive(should_close, "mint_should_close")) {
+		if (receive_close.receive(should_close, "mintclose")) {
+			std::cout << "received remote close" << std::endl;
 			glfwSetWindowShouldClose(window, true);
+			data_sender.send(should_close, "mintclose");
 		}
 
 		frame_id++;
@@ -568,6 +573,7 @@ int main(int argc, char** argv)
 
 	data_sender.stop();
 	data_receiver.stop();
+	receive_close.stop();
 
 	fbo.destroy();
 	texture_receiver.destroy();

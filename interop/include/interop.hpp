@@ -138,6 +138,7 @@ enum class Endpoint {
 
 struct DataSender {
   DataSender();
+  explicit DataSender(std::string const& address);
   ~DataSender();
 
   void start(Endpoint socket_type = Endpoint::Bind);
@@ -152,9 +153,12 @@ struct DataSender {
   bool send(DataType const &v, std::string const &filterName);
 
   std::shared_ptr<void> m_sender;
+  std::string m_address;
 };
 
 struct DataReceiver {
+  DataReceiver();
+  explicit DataReceiver(std::string const& address);
   ~DataReceiver();
 
   bool start(const std::string &filterName = "", Endpoint socket_type = Endpoint::Connect);
@@ -166,6 +170,7 @@ struct DataReceiver {
 
   //std::shared_ptr<void> m_receiver;
   std::string m_filterName;
+  std::string m_address;
 
   std::thread m_worker;
   std::atomic_flag m_worker_signal = ATOMIC_FLAG_INIT;

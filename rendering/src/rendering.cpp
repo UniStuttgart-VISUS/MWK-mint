@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
 	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
 	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
-		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
+		->transform(CLI::CheckedTransformer(map_spout, CLI::ignore_case));
 
 	std::filesystem::path rendering_fps_target_ms_file = "mint_target_fps.txt";
 	auto* fps_file_opt = app.add_option("-f,--render-file", rendering_fps_target_ms_file, "File containing target frame time in miliseconds, as in --render-ms option");
@@ -389,7 +389,8 @@ int main(int argc, char** argv)
 	while (!glfwWindowShouldClose(window))
 	{
 		int should_close = 0;
-		if (data_receiver.receive(should_close, "mint_should_close")) {
+		if (data_receiver.receive(should_close, "mintclose")) {
+			std::cout << "received remote close" << std::endl;
 			glfwSetWindowShouldClose(window, true);
 		}
 
