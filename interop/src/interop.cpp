@@ -952,6 +952,14 @@ void from_json(const json &j, StereoCameraView &v) {
   readObj(rightEyeView);
 }
 
+void to_json(json &j, const StereoCameraViewRelative &v) {
+  j = json{writeVal(leftEyeView), writeVal(rightEyeView)};
+}
+void from_json(const json &j, StereoCameraViewRelative &v) {
+  readObj(leftEyeView);
+  readObj(rightEyeView);
+}
+
 void to_json(json &j, const CameraProjection &v) {
   j = json{writeVal(fieldOfViewY_rad), writeVal(nearClipPlane),
            writeVal(farClipPlane),     writeVal(aspect),
@@ -1016,10 +1024,10 @@ void from_json(const json &j, DatasetRenderConfiguration &v) {
 }
 } // namespace interop
 
-#define make_dataGet(DataTypeName)                                             \
+#define make_dataGet(DataTypeName, NameString)                                 \
   template <>                                                                  \
   bool interop::DataReceiver::receive<DataTypeName>(DataTypeName & v) {        \
-    if (auto data = this->receiveCopy(); data.has_value()) {                   \
+    if (auto data = this->receiveCopy(NameString); data.has_value()) {         \
       auto &byteData = data.value();                                          \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
@@ -1031,18 +1039,28 @@ void from_json(const json &j, DatasetRenderConfiguration &v) {
     return false;                                                              \
   }
 
+#define make_name(DataTypeName) \
+    template <> \
+    std::string interop::to_data_name(DataTypeName const& v) { return std::string{#DataTypeName}; }
+make_name(interop::BoundingBoxCorners);
+make_name(interop::CameraProjection);
+make_name(interop::StereoCameraView);
+make_name(interop::StereoCameraViewRelative);
+#undef make_name
+
 // when adding to those macros, don't forget to also define 'to_json' and
 // 'from_json' functions above for the new data type
-make_dataGet(interop::BoundingBoxCorners);
-make_dataGet(interop::DatasetRenderConfiguration);
-make_dataGet(interop::ModelPose);
-make_dataGet(interop::StereoCameraConfiguration);
-make_dataGet(interop::CameraConfiguration);
-make_dataGet(interop::CameraProjection);
-make_dataGet(interop::StereoCameraView);
-make_dataGet(interop::CameraView);
-make_dataGet(interop::mat4);
-make_dataGet(interop::vec4);
+make_dataGet(interop::BoundingBoxCorners, interop::to_data_name(interop::BoundingBoxCorners{}));
+make_dataGet(interop::DatasetRenderConfiguration, "");
+make_dataGet(interop::ModelPose, "");
+make_dataGet(interop::StereoCameraConfiguration, "");
+make_dataGet(interop::CameraConfiguration, "");
+make_dataGet(interop::CameraProjection, interop::to_data_name(interop::CameraProjection{}));
+make_dataGet(interop::StereoCameraView, interop::to_data_name(interop::StereoCameraView{}));
+make_dataGet(interop::StereoCameraViewRelative, interop::to_data_name(interop::StereoCameraViewRelative{}));
+make_dataGet(interop::CameraView, "");
+make_dataGet(interop::mat4, "");
+make_dataGet(interop::vec4, "");
 
 #define make_scalar_get(DataTypeName)                                          \
   template <>                                                                  \
@@ -1083,10 +1101,22 @@ make_send(interop::StereoCameraConfiguration);
 make_send(interop::CameraConfiguration);
 make_send(interop::CameraProjection);
 make_send(interop::StereoCameraView);
+make_send(interop::StereoCameraViewRelative);
 make_send(interop::CameraView);
 make_send(interop::mat4);
 make_send(interop::vec4);
 #undef make_send
+
+#define make_send(DataTypeName)                                            \
+  template <>                                                                  \
+  bool interop::DataSender::send<DataTypeName>(                            \
+      DataTypeName const &v) { return this->send(to_data_name(v), v); }
+make_send(interop::BoundingBoxCorners);
+make_send(interop::CameraProjection);
+make_send(interop::StereoCameraView);
+make_send(interop::StereoCameraViewRelative);
+#undef make_send
+
 
 // interop::vec4 arithmetic operators
 interop::vec4 interop::operator+(interop::vec4 const &lhs,
@@ -1144,3 +1174,4 @@ bool interop::operator==(const vec4& l, const vec4& r) {
 bool interop::operator!=(const vec4& l, const vec4& r) {
     return !(l == r);
 }
+

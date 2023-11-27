@@ -223,7 +223,8 @@ int main(int argc, char** argv)
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 	int initialWidth = 640;
 	int initialHeight = 480;
-	window = glfwCreateWindow(initialWidth, initialHeight, "mint steering", NULL, NULL);
+	std::string window_name = "mint steering";
+	window = glfwCreateWindow(initialWidth, initialHeight, window_name.c_str(), NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -342,7 +343,7 @@ int main(int argc, char** argv)
 	data_sender.start();
 
 	auto cameraProjection = mint::CameraProjection(); // "CameraProjection"
-	auto stereoCameraView = mint::StereoCameraView(); // "StereoCameraViewRelative"
+	auto stereoCameraView = mint::StereoCameraViewRelative(); // "StereoCameraViewRelative"
 
 	mint::DataReceiver bboxReceiver;
 	bboxReceiver.start("BoundingBoxCorners");
@@ -387,6 +388,14 @@ int main(int argc, char** argv)
 	auto program_start_time = std::chrono::high_resolution_clock::now();
 	auto current_time = std::chrono::high_resolution_clock::now();
 
+	std::vector<float> frame_durations(60, 0.0f);
+	float frame_durations_size = static_cast<float>(frame_durations.size());
+	unsigned int frame_timing_index = 0;
+
+	auto fps_average = [&]() {
+		return std::accumulate(frame_durations.begin(), frame_durations.end(), 0.0f) / frame_durations_size;
+	};
+
 	bool has_bbox = false;
 
 	while (!glfwWindowShouldClose(window))
@@ -395,6 +404,16 @@ int main(int argc, char** argv)
 
 		auto last_time = current_time;
 		current_time = std::chrono::high_resolution_clock::now();
+		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
+		frame_durations[frame_timing_index] = last_frame_duration;
+
+		if(frame_timing_index == 0){
+			float frame_ms = fps_average();
+			std::string fps_info = " | " + std::to_string(frame_ms) + " ms/f | " + std::to_string(1000.0f / frame_ms) + " fps" ;
+			std::string title = window_name + fps_info;
+			glfwSetWindowTitle(window, title.c_str());
+		}
+		frame_timing_index = (frame_timing_index + 1) % frame_durations.size();
 
 		glfwGetFramebufferSize(window, &width, &height);
 
@@ -443,8 +462,8 @@ int main(int argc, char** argv)
 		// actually draw different left/right cameras
 		stereoCameraView.rightEyeView.eyePos += 0.2*bboxCorners.diagonal();
 
-		data_sender.send("StereoCameraViewRelative", stereoCameraView);
-		data_sender.send("CameraProjection", cameraProjection);
+		data_sender.send(stereoCameraView);
+		data_sender.send(cameraProjection);
 
 		texture_receiver.receive();
 		auto texture_handle = texture_receiver.m_texture_handle;

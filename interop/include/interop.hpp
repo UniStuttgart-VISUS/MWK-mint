@@ -149,6 +149,9 @@ struct DataSender {
   template <typename DataType>
   bool send(std::string const &filterName, DataType const &v);
 
+  template <typename DataType>
+  bool send(DataType const &v);
+
   std::shared_ptr<void> m_sender;
   std::string m_filterName;
 };
@@ -209,6 +212,11 @@ struct CameraView {
 };
 
 struct StereoCameraView {
+  CameraView leftEyeView;
+  CameraView rightEyeView;
+};
+
+struct StereoCameraViewRelative {
   CameraView leftEyeView;
   CameraView rightEyeView;
 };
@@ -310,6 +318,7 @@ make_dataGet(StereoCameraConfiguration);
 make_dataGet(CameraConfiguration);
 make_dataGet(CameraProjection);
 make_dataGet(StereoCameraView);
+make_dataGet(StereoCameraViewRelative);
 make_dataGet(CameraView);
 make_dataGet(mat4);
 make_dataGet(vec4);
@@ -333,10 +342,14 @@ make_send(StereoCameraConfiguration);
 make_send(CameraConfiguration);
 make_send(CameraProjection);
 make_send(StereoCameraView);
+make_send(StereoCameraViewRelative);
 make_send(CameraView);
 make_send(mat4);
 make_send(vec4);
 #undef make_send
+
+template <typename DataType>
+std::string to_data_name(DataType const& v);
 
 } // namespace interop
 

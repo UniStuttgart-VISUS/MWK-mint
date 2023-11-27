@@ -336,13 +336,16 @@ int main(int argc, char** argv)
 	mint::TextureSender ts_right;
 	ts_right.init(mint::ImageType::RightEye);
 
-	mint::DataReceiver cameraProjectionReceiver;
-	cameraProjectionReceiver.start("CameraProjection");
+	mint::DataReceiver data_receiver;
+	data_receiver.start();
+
+	//mint::DataReceiver cameraProjectionReceiver;
+	//cameraProjectionReceiver.start("CameraProjection");
 	auto cameraProjection = mint::CameraProjection();
 
-	mint::DataReceiver stereoCameraViewReceiver_relative;
-	stereoCameraViewReceiver_relative.start("StereoCameraViewRelative");
-	auto stereoCameraView = mint::StereoCameraView();
+	//mint::DataReceiver stereoCameraViewReceiver_relative;
+	//stereoCameraViewReceiver_relative.start("StereoCameraViewRelative");
+	auto stereoCameraView = mint::StereoCameraViewRelative();
 
 	mint::DataSender bboxSender;
 	bboxSender.start("BoundingBoxCorners");
@@ -425,7 +428,7 @@ int main(int argc, char** argv)
 		bool received_data = false;
 
 		bool hasNewWindowSize = false;
-		if (received_data |= cameraProjectionReceiver.receive<mint::CameraProjection>(cameraProjection)) {
+		if (received_data |= data_receiver.receive<mint::CameraProjection>(cameraProjection)) {
 			projection = glm::perspective(
 				cameraProjection.fieldOfViewY_rad,
 				cameraProjection.aspect,
@@ -442,7 +445,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		received_data |= stereoCameraViewReceiver_relative.receive<mint::StereoCameraView>(stereoCameraView);
+		received_data |= data_receiver.receive<mint::StereoCameraViewRelative>(stereoCameraView);
 
 		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender& ts)
 		{
@@ -492,8 +495,9 @@ int main(int argc, char** argv)
 		glfwPollEvents();
 	}
 
-	cameraProjectionReceiver.stop();
-	stereoCameraViewReceiver_relative.stop();
+	data_receiver.stop();
+	//cameraProjectionReceiver.stop();
+	//stereoCameraViewReceiver_relative.stop();
 	bboxSender.stop();
 
 	fbo_left.destroy();
