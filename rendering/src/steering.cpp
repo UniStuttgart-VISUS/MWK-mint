@@ -411,7 +411,7 @@ int main(int argc, char** argv)
 		cameraProjection.pixelHeight = height;
 
 		mint::BoundingBoxCorners newBbox;
-		if (has_bbox = bboxReceiver.getData(newBbox)) {
+		if (has_bbox = bboxReceiver.receive(newBbox)) {
 			if(newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
 				defaultCameraView = get_camera_view(newBbox);
 				bboxCorners = newBbox;
@@ -443,10 +443,10 @@ int main(int argc, char** argv)
 		// actually draw different left/right cameras
 		stereoCameraView.rightEyeView.eyePos += 0.2*bboxCorners.diagonal();
 
-		data_sender.sendData("StereoCameraViewRelative", stereoCameraView);
-		data_sender.sendData("CameraProjection", cameraProjection);
+		data_sender.send("StereoCameraViewRelative", stereoCameraView);
+		data_sender.send("CameraProjection", cameraProjection);
 
-		texture_receiver.receiveTexture();
+		texture_receiver.receive();
 		auto texture_handle = texture_receiver.m_texture_handle;
 
 		if(width != fbo.m_width || height != fbo.m_height) {

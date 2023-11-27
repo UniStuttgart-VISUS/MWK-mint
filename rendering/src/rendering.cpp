@@ -409,7 +409,7 @@ int main(int argc, char** argv)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		bboxSender.sendData<mint::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
+		bboxSender.send<mint::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
 
 		const auto getModelMatrix = [](mint::ModelPose& mp) -> glm::mat4 {
 			const glm::vec4 modelTranslate = toGlm(mp.translation);
@@ -425,7 +425,7 @@ int main(int argc, char** argv)
 		bool received_data = false;
 
 		bool hasNewWindowSize = false;
-		if (received_data |= cameraProjectionReceiver.getData<mint::CameraProjection>(cameraProjection)) {
+		if (received_data |= cameraProjectionReceiver.receive<mint::CameraProjection>(cameraProjection)) {
 			projection = glm::perspective(
 				cameraProjection.fieldOfViewY_rad,
 				cameraProjection.aspect,
@@ -442,7 +442,7 @@ int main(int argc, char** argv)
 			}
 		}
 
-		received_data |= stereoCameraViewReceiver_relative.getData<mint::StereoCameraView>(stereoCameraView);
+		received_data |= stereoCameraViewReceiver_relative.receive<mint::StereoCameraView>(stereoCameraView);
 
 		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender& ts)
 		{
@@ -475,7 +475,7 @@ int main(int argc, char** argv)
 			bbox.unbind();
 
 			fbo.unbind();
-			ts.sendTexture(fbo.m_glTextureRGBA8, width, height);
+			ts.send(fbo.m_glTextureRGBA8, width, height);
 			fbo.blitTexture(); // blit custom fbo to default framebuffer
 		};
 
@@ -486,7 +486,7 @@ int main(int argc, char** argv)
 		mint::uint steering_frame_id = 0;
 		steering_frame_id = glm::floatBitsToUint(stereoCameraView.leftEyeView.eyePos.w);
 
-		stereotextureSender.sendStereoTexture(fbo_left, fbo_right, width, height, steering_frame_id);
+		stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

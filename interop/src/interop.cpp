@@ -363,7 +363,7 @@ bool interop::TextureSender::resizeTexture(uint width, uint height) {
   return true;
 }
 
-void interop::TextureSender::sendTexture(uint textureHandle, uint width,
+void interop::TextureSender::send(uint textureHandle, uint width,
                                          uint height) {
   if (textureHandle == 0)
     return;
@@ -375,8 +375,8 @@ void interop::TextureSender::sendTexture(uint textureHandle, uint width,
 }
 #undef m_spout
 
-void interop::TextureSender::sendTexture(glFramebuffer &fb) {
-  this->sendTexture(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
+void interop::TextureSender::send(glFramebuffer &fb) {
+  this->send(fb.m_glTextureRGBA8, fb.m_width, fb.m_height);
 }
 
 #define m_spout (static_cast<SpoutReceiver *>(m_receiver.get()))
@@ -416,7 +416,7 @@ void interop::TextureReceiver::destroy() {
   m_spout->ReleaseReceiver();
 }
 
-void interop::TextureReceiver::receiveTexture() {
+void interop::TextureReceiver::receive() {
   uint width = 0, height = 0;
 
   if (!m_spout->ReceiveTexture(const_cast<char *>(m_name.c_str()), width,
@@ -517,17 +517,17 @@ void interop::StereoTextureSender::makeHugeTexture(const uint originalWidth,
                                     m_hugeHeight); // resizes sender texture
 }
 
-void interop::StereoTextureSender::sendStereoTexture(glFramebuffer &fb_left,
+void interop::StereoTextureSender::send(glFramebuffer &fb_left,
                                                        glFramebuffer &fb_right,
                                                        const uint width,
                                                        const uint height,
                                                        const uint meta_data) {
-  this->sendStereoTexture(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8,
+  this->send(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8,
                            fb_left.m_glTextureDepth, fb_right.m_glTextureDepth,
                            width, height, meta_data);
 }
 
-void interop::StereoTextureSender::sendStereoTexture(
+void interop::StereoTextureSender::send(
     const uint color_left, const uint color_right, const uint depth_left,
     const uint depth_right, const uint width, const uint height,
     const uint meta_data) {
@@ -537,7 +537,7 @@ void interop::StereoTextureSender::sendStereoTexture(
   this->blitTextures(color_left, color_right, depth_left, depth_right, width,
                      height, meta_data);
 
-  m_hugeTextureSender.sendTexture(m_hugeFbo);
+  m_hugeTextureSender.send(m_hugeFbo);
 }
 
 void interop::StereoTextureSender::initGLresources() {
@@ -735,10 +735,10 @@ void interop::DataSender::stop() {
     m_socket.close();
 }
 
-bool interop::DataSender::sendData(std::string const &v) {
-  return this->sendData(m_filterName, v);
+bool interop::DataSender::send(std::string const &v) {
+  return this->send(m_filterName, v);
 }
-bool interop::DataSender::sendData(std::string const &filterName,
+bool interop::DataSender::send(std::string const &filterName,
                                    std::string const &v) {
   auto &socket = m_socket;
 
@@ -764,7 +764,7 @@ bool interop::DataSender::sendData(std::string const &filterName,
 }
 
 // template <typename DataType>
-// void interop::DataSender::sendData(std::string const& filterName, DataType
+// void interop::DataSender::send(std::string const& filterName, DataType
 // const& v);
 #undef m_socket
 
@@ -816,7 +816,7 @@ void interop::DataReceiver::stop() {
   m_socket.close();
 }
 
-std::optional<std::string> interop::DataReceiver::getDataCopy() {
+std::optional<std::string> interop::DataReceiver::receiveCopy() {
     auto& socket = m_socket;
 
     zmq::message_t address_msg;
@@ -844,8 +844,8 @@ std::optional<std::string> interop::DataReceiver::getDataCopy() {
 #undef m_socket
 
 // template <typename Datatype>
-// Datatype interop::DataReceiver::getData() {
-//	this->getDataCopy();
+// Datatype interop::DataReceiver::receive() {
+//	this->receiveCopy();
 //	auto& byteData = m_msgDataCopy;
 // }
 
@@ -995,8 +995,8 @@ void from_json(const json &j, DatasetRenderConfiguration &v) {
 
 #define make_dataGet(DataTypeName)                                             \
   template <>                                                                  \
-  bool interop::DataReceiver::getData<DataTypeName>(DataTypeName & v) {        \
-    if (auto data = this->getDataCopy(); data.has_value()) {                   \
+  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName & v) {        \
+    if (auto data = this->receiveCopy(); data.has_value()) {                   \
       auto &byteData = data.value();                                          \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
@@ -1023,8 +1023,8 @@ make_dataGet(interop::vec4);
 
 #define make_scalar_get(DataTypeName)                                          \
   template <>                                                                  \
-  bool interop::DataReceiver::getData<DataTypeName>(DataTypeName & v) {        \
-    if (auto data = this->getDataCopy(); data.has_value()) {                   \
+  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName & v) {        \
+    if (auto data = this->receiveCopy(); data.has_value()) {                   \
       auto &byteData = data.value();                                           \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
@@ -1042,28 +1042,28 @@ make_scalar_get(unsigned int);
 make_scalar_get(float);
 make_scalar_get(double);
 
-#define make_sendData(DataTypeName)                                            \
+#define make_send(DataTypeName)                                            \
   template <>                                                                  \
-  bool interop::DataSender::sendData<DataTypeName>(                            \
+  bool interop::DataSender::send<DataTypeName>(                            \
       std::string const &filterName, DataTypeName const &v) {                  \
     const json j = v;                                                          \
     const std::string jsonString = j.dump();                                   \
-    return this->sendData(filterName, jsonString);                             \
+    return this->send(filterName, jsonString);                             \
   }
 
 // when adding to those macros, don't forget to also define 'to_json' and
 // 'from_json' functions above for the new data type
-make_sendData(interop::BoundingBoxCorners);
-make_sendData(interop::DatasetRenderConfiguration);
-make_sendData(interop::ModelPose);
-make_sendData(interop::StereoCameraConfiguration);
-make_sendData(interop::CameraConfiguration);
-make_sendData(interop::CameraProjection);
-make_sendData(interop::StereoCameraView);
-make_sendData(interop::CameraView);
-make_sendData(interop::mat4);
-make_sendData(interop::vec4);
-#undef make_sendData
+make_send(interop::BoundingBoxCorners);
+make_send(interop::DatasetRenderConfiguration);
+make_send(interop::ModelPose);
+make_send(interop::StereoCameraConfiguration);
+make_send(interop::CameraConfiguration);
+make_send(interop::CameraProjection);
+make_send(interop::StereoCameraView);
+make_send(interop::CameraView);
+make_send(interop::mat4);
+make_send(interop::vec4);
+#undef make_send
 
 // interop::vec4 arithmetic operators
 interop::vec4 interop::operator+(interop::vec4 const &lhs,

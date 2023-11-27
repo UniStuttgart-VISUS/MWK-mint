@@ -58,8 +58,8 @@ struct TextureSender {
   void init(ImageType type, std::string name = "", uint width = 1, uint height = 1);
   void destroy();
   bool resizeTexture(uint width, uint height);
-  void sendTexture(uint texture, uint width, uint height);
-  void sendTexture(glFramebuffer &fb);
+  void send(uint texture, uint width, uint height);
+  void send(glFramebuffer &fb);
 
   std::string m_name = "";
   uint m_width = 0;
@@ -75,7 +75,7 @@ struct TextureReceiver {
   void init(ImageType type, std::string name = "");
 
   void destroy();
-  void receiveTexture();
+  void receive();
 
   std::string m_name = "";
   uint m_width = 0;
@@ -96,10 +96,10 @@ struct StereoTextureSender {
   void init(std::string name = "", const uint width = 1, const uint height = 1);
 
   void destroy();
-  void sendStereoTexture(glFramebuffer &fb_left, glFramebuffer &fb_right,
+  void send(glFramebuffer &fb_left, glFramebuffer &fb_right,
                           const uint width, const uint height,
                           const uint meta_data = 0);
-  void sendStereoTexture(const uint color_left, const uint color_right,
+  void send(const uint color_left, const uint color_right,
                           const uint depth_left, const uint depth_right,
                           const uint width, const uint height,
                           const uint meta_data = 0);
@@ -139,11 +139,11 @@ struct DataSender {
   void start(const std::string &filterName = "", Endpoint socket_type = Endpoint::Bind);
   void stop();
 
-  bool sendData(std::string const &v);
-  bool sendData(std::string const &filterName, std::string const &v);
+  bool send(std::string const &v);
+  bool send(std::string const &filterName, std::string const &v);
 
   template <typename DataType>
-  bool sendData(std::string const &filterName, DataType const &v);
+  bool send(std::string const &filterName, DataType const &v);
 
   std::shared_ptr<void> m_sender;
   std::string m_filterName;
@@ -155,8 +155,8 @@ struct DataReceiver {
   bool start(const std::string &filterName, Endpoint socket_type = Endpoint::Connect);
   void stop();
 
-  template <typename Datatype> bool getData(Datatype &v);
-  std::optional<std::string> getDataCopy();
+  template <typename Datatype> bool receive(Datatype &v);
+  std::optional<std::string> receiveCopy();
 
   std::shared_ptr<void> m_receiver;
   std::string m_filterName;
@@ -290,7 +290,7 @@ struct BoundingBoxCorners {
 // converter functions to fill inteorp struct from Json string received by
 // DataReceiver
 #define make_dataGet(DataTypeName)                                             \
-  template <> bool DataReceiver::getData<DataTypeName>(DataTypeName & v);
+  template <> bool DataReceiver::receive<DataTypeName>(DataTypeName & v);
 
 make_dataGet(BoundingBoxCorners);
 make_dataGet(DatasetRenderConfiguration);
@@ -310,22 +310,22 @@ make_dataGet(float);
 make_dataGet(double);
 #undef make_dataGet
 
-#define make_sendData(DataTypeName)                                            \
+#define make_send(DataTypeName)                                            \
   template <>                                                                  \
-  bool interop::DataSender::sendData<DataTypeName>(                            \
+  bool interop::DataSender::send<DataTypeName>(                            \
       std::string const &filterName, DataTypeName const &v);
 
-make_sendData(BoundingBoxCorners);
-make_sendData(DatasetRenderConfiguration);
-make_sendData(ModelPose);
-make_sendData(StereoCameraConfiguration);
-make_sendData(CameraConfiguration);
-make_sendData(CameraProjection);
-make_sendData(StereoCameraView);
-make_sendData(CameraView);
-make_sendData(mat4);
-make_sendData(vec4);
-#undef make_sendData
+make_send(BoundingBoxCorners);
+make_send(DatasetRenderConfiguration);
+make_send(ModelPose);
+make_send(StereoCameraConfiguration);
+make_send(CameraConfiguration);
+make_send(CameraProjection);
+make_send(StereoCameraView);
+make_send(CameraView);
+make_send(mat4);
+make_send(vec4);
+#undef make_send
 
 } // namespace interop
 
