@@ -281,8 +281,8 @@ int main(int argc, char** argv)
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
 
-	unsigned int seconds = 60;
-	unsigned int samples_per_second = 200; // roughtly application fps
+	unsigned int seconds = 30;
+	unsigned int samples_per_second = 100; // roughtly application fps
 	unsigned int latency_sample_count = samples_per_second * seconds;
 
 	using SsboType = glm::uvec2;
