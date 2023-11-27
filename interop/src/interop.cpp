@@ -699,12 +699,9 @@ void interop::StereoTextureSender::blitTextures(
 interop::DataSender::DataSender() {}
 interop::DataSender::~DataSender() {}
 
-void interop::DataSender::start(std::string const &filterName,
-                                Endpoint socket_type) {
+void interop::DataSender::start(Endpoint socket_type) {
   
   const auto& networkAddress = session_addresses.send;
-
-  m_filterName = filterName;
 
   m_sender =
       std::make_shared<zmq::socket_t>(g_zmqContext, zmq::socket_type::pub);
@@ -735,11 +732,10 @@ void interop::DataSender::stop() {
     m_socket.close();
 }
 
-bool interop::DataSender::send(std::string const &v) {
-  return this->send(m_filterName, v);
-}
-bool interop::DataSender::send(std::string const &filterName,
-                                   std::string const &v) {
+bool interop::DataSender::send_raw(
+    std::string const &v,
+    std::string const &filterName)
+{
   auto &socket = m_socket;
 
   zmq::message_t address_msg{filterName.data(), filterName.size()};
@@ -762,10 +758,6 @@ bool interop::DataSender::send(std::string const &filterName,
   }
   return sendingResult;
 }
-
-// template <typename DataType>
-// void interop::DataSender::send(std::string const& filterName, DataType
-// const& v);
 #undef m_socket
 
 interop::DataReceiver::~DataReceiver() { stop(); }
@@ -780,6 +772,10 @@ bool interop::DataReceiver::start(const std::string &filterName,
 
   m_worker_signal.test_and_set();
 
+  // we need this async receiver worker to churn through all messages
+  // and have the latest one ready when somebody asks for it
+  // because the ZMQ_CONFLATE option (keeping only latest message) 
+  // does not work with PUB/SUB sockets
   m_worker = std::thread{[&, filterName, networkAddress, socket_type]() {
       zmq::socket_t socket(g_zmqContext, zmq::socket_type::sub);
 
@@ -865,12 +861,6 @@ std::optional<std::string> interop::DataReceiver::receiveCopy(const std::string 
     return r;
 }
 #undef m_socket
-
-// template <typename Datatype>
-// Datatype interop::DataReceiver::receive() {
-//	this->receiveCopy();
-//	auto& byteData = m_msgDataCopy;
-// }
 
 // -------------------------------------------------
 // --- JSON converters for our interop data types
@@ -1024,10 +1014,10 @@ void from_json(const json &j, DatasetRenderConfiguration &v) {
 }
 } // namespace interop
 
-#define make_dataGet(DataTypeName, NameString)                                 \
+#define make_dataGet(DataTypeName)                                 \
   template <>                                                                  \
-  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName & v) {        \
-    if (auto data = this->receiveCopy(NameString); data.has_value()) {         \
+  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName) {        \
+    if (auto data = this->receiveCopy(filterName); data.has_value()) {         \
       auto &byteData = data.value();                                          \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
@@ -1048,24 +1038,36 @@ make_name(interop::StereoCameraView);
 make_name(interop::StereoCameraViewRelative);
 #undef make_name
 
+#define make_named_receive(DataTypeName) \
+  template <>                                                         \
+  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName &v) {\
+    return this->receive(v, interop::to_data_name(v));\
+  }
+
+make_named_receive(interop::BoundingBoxCorners);
+make_named_receive(interop::CameraProjection);
+make_named_receive(interop::StereoCameraView);
+make_named_receive(interop::StereoCameraViewRelative);
+#undef make_named_receive
+
 // when adding to those macros, don't forget to also define 'to_json' and
 // 'from_json' functions above for the new data type
-make_dataGet(interop::BoundingBoxCorners, interop::to_data_name(interop::BoundingBoxCorners{}));
-make_dataGet(interop::DatasetRenderConfiguration, "");
-make_dataGet(interop::ModelPose, "");
-make_dataGet(interop::StereoCameraConfiguration, "");
-make_dataGet(interop::CameraConfiguration, "");
-make_dataGet(interop::CameraProjection, interop::to_data_name(interop::CameraProjection{}));
-make_dataGet(interop::StereoCameraView, interop::to_data_name(interop::StereoCameraView{}));
-make_dataGet(interop::StereoCameraViewRelative, interop::to_data_name(interop::StereoCameraViewRelative{}));
-make_dataGet(interop::CameraView, "");
-make_dataGet(interop::mat4, "");
-make_dataGet(interop::vec4, "");
+make_dataGet(interop::BoundingBoxCorners);
+make_dataGet(interop::DatasetRenderConfiguration);
+make_dataGet(interop::ModelPose);
+make_dataGet(interop::StereoCameraConfiguration);
+make_dataGet(interop::CameraConfiguration);
+make_dataGet(interop::CameraProjection);
+make_dataGet(interop::StereoCameraView);
+make_dataGet(interop::StereoCameraViewRelative);
+make_dataGet(interop::CameraView);
+make_dataGet(interop::mat4);
+make_dataGet(interop::vec4);
 
 #define make_scalar_get(DataTypeName)                                          \
   template <>                                                                  \
-  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName & v) {        \
-    if (auto data = this->receiveCopy(); data.has_value()) {                   \
+  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName) {        \
+    if (auto data = this->receiveCopy(filterName); data.has_value()) {                   \
       auto &byteData = data.value();                                           \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
@@ -1086,10 +1088,10 @@ make_scalar_get(double);
 #define make_send(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      std::string const &filterName, DataTypeName const &v) {                  \
+      DataTypeName const &v, std::string const &filterName) {                  \
     const json j = v;                                                          \
     const std::string jsonString = j.dump();                                   \
-    return this->send(filterName, jsonString);                             \
+    return this->send_raw(jsonString, filterName);                             \
   }
 
 // when adding to those macros, don't forget to also define 'to_json' and
@@ -1107,14 +1109,14 @@ make_send(interop::mat4);
 make_send(interop::vec4);
 #undef make_send
 
-#define make_send(DataTypeName)                                            \
+#define make_named_send(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      DataTypeName const &v) { return this->send(to_data_name(v), v); }
-make_send(interop::BoundingBoxCorners);
-make_send(interop::CameraProjection);
-make_send(interop::StereoCameraView);
-make_send(interop::StereoCameraViewRelative);
+      DataTypeName const &v) { return this->send(v, interop::to_data_name(v)); }
+make_named_send(interop::BoundingBoxCorners);
+make_named_send(interop::CameraProjection);
+make_named_send(interop::StereoCameraView);
+make_named_send(interop::StereoCameraViewRelative);
 #undef make_send
 
 

@@ -347,8 +347,9 @@ int main(int argc, char** argv)
 	//stereoCameraViewReceiver_relative.start("StereoCameraViewRelative");
 	auto stereoCameraView = mint::StereoCameraViewRelative();
 
-	mint::DataSender bboxSender;
-	bboxSender.start("BoundingBoxCorners");
+	mint::DataSender data_sender;
+	data_sender.start();
+
 	auto bboxCorners = mint::BoundingBoxCorners{
 		mint::vec4{0.0f, 0.0f, 0.0f , 1.0f},
 		mint::vec4{2.0f*offset.x, 2.0f*offset.y, 2.0f*offset.z, 1.0f}
@@ -387,6 +388,11 @@ int main(int argc, char** argv)
 
 	while (!glfwWindowShouldClose(window))
 	{
+		int should_close = 0;
+		if (data_receiver.receive(should_close, "mint_should_close")) {
+			glfwSetWindowShouldClose(window, true);
+		}
+
 		auto last_time = current_time;
 		current_time = std::chrono::high_resolution_clock::now();
 		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
@@ -412,7 +418,7 @@ int main(int argc, char** argv)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		bboxSender.send<mint::BoundingBoxCorners>("BoundingBoxCorners", bboxCorners);
+		data_sender.send(bboxCorners);
 
 		const auto getModelMatrix = [](mint::ModelPose& mp) -> glm::mat4 {
 			const glm::vec4 modelTranslate = toGlm(mp.translation);
@@ -498,7 +504,7 @@ int main(int argc, char** argv)
 	data_receiver.stop();
 	//cameraProjectionReceiver.stop();
 	//stereoCameraViewReceiver_relative.stop();
-	bboxSender.stop();
+	data_sender.stop();
 
 	fbo_left.destroy();
 	fbo_right.destroy();

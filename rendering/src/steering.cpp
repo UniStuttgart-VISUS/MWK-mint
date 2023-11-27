@@ -345,8 +345,9 @@ int main(int argc, char** argv)
 	auto cameraProjection = mint::CameraProjection(); // "CameraProjection"
 	auto stereoCameraView = mint::StereoCameraViewRelative(); // "StereoCameraViewRelative"
 
-	mint::DataReceiver bboxReceiver;
-	bboxReceiver.start("BoundingBoxCorners");
+	mint::DataReceiver data_receiver;
+	data_receiver.start();
+
 	auto bboxCorners = mint::BoundingBoxCorners{
 		mint::vec4{0.0f, 0.0f, 0.0f , 1.0f},
 		mint::vec4{1.0f, 1.0f, 1.0f , 1.0f},
@@ -400,6 +401,11 @@ int main(int argc, char** argv)
 
 	while (!glfwWindowShouldClose(window))
 	{
+		int should_close = 0;
+		if (data_receiver.receive(should_close, "mint_should_close")) {
+			glfwSetWindowShouldClose(window, true);
+		}
+
 		frame_id++;
 
 		auto last_time = current_time;
@@ -430,7 +436,7 @@ int main(int argc, char** argv)
 		cameraProjection.pixelHeight = height;
 
 		mint::BoundingBoxCorners newBbox;
-		if (has_bbox = bboxReceiver.receive(newBbox)) {
+		if (has_bbox = data_receiver.receive(newBbox)) {
 			if(newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
 				defaultCameraView = get_camera_view(newBbox);
 				bboxCorners = newBbox;
@@ -561,7 +567,7 @@ int main(int argc, char** argv)
 	}
 
 	data_sender.stop();
-	bboxReceiver.stop();
+	data_receiver.stop();
 
 	fbo.destroy();
 	texture_receiver.destroy();

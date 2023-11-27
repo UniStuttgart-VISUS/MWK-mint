@@ -140,20 +140,18 @@ struct DataSender {
   DataSender();
   ~DataSender();
 
-  void start(const std::string &filterName = "", Endpoint socket_type = Endpoint::Bind);
+  void start(Endpoint socket_type = Endpoint::Bind);
   void stop();
 
-  bool send(std::string const &v);
-  bool send(std::string const &filterName, std::string const &v);
-
-  template <typename DataType>
-  bool send(std::string const &filterName, DataType const &v);
+  bool send_raw(std::string const &v, std::string const &filterName);
 
   template <typename DataType>
   bool send(DataType const &v);
 
+  template <typename DataType>
+  bool send(DataType const &v, std::string const &filterName);
+
   std::shared_ptr<void> m_sender;
-  std::string m_filterName;
 };
 
 struct DataReceiver {
@@ -163,6 +161,7 @@ struct DataReceiver {
   void stop();
 
   template <typename Datatype> bool receive(Datatype &v);
+  template <typename Datatype> bool receive(Datatype &v, const std::string &filterName);
   std::optional<std::string> receiveCopy(const std::string &filterName = "");
 
   //std::shared_ptr<void> m_receiver;
@@ -309,7 +308,7 @@ struct BoundingBoxCorners {
 // converter functions to fill inteorp struct from Json string received by
 // DataReceiver
 #define make_dataGet(DataTypeName)                                             \
-  template <> bool DataReceiver::receive<DataTypeName>(DataTypeName & v);
+  template <> bool DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName);
 
 make_dataGet(BoundingBoxCorners);
 make_dataGet(DatasetRenderConfiguration);
@@ -333,7 +332,7 @@ make_dataGet(double);
 #define make_send(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      std::string const &filterName, DataTypeName const &v);
+      DataTypeName const &v, std::string const &filterName);
 
 make_send(BoundingBoxCorners);
 make_send(DatasetRenderConfiguration);
