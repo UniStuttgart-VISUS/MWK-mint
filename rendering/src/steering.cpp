@@ -207,10 +207,16 @@ int main(int argc, char** argv)
 	std::filesystem::path latency_measure_output_file = "";
 	app.add_option("-f,--latency-file", latency_measure_output_file, "Output file for latency measurements");
 
+	float latency_measure_duration_sec = 0.0f;
+	app.add_option("--latency-measure", latency_measure_duration_sec, "How long to measure frame latency, in seconds");
+
 	float latency_measure_delay_until_start_sec = 0.0f;
 	app.add_option("--latency-startup", latency_measure_delay_until_start_sec, "If positive, delay in seconds after startup until latency measurements begin");
 
 	CLI11_PARSE(app, argc, argv);
+	// cli data available only after parsing!
+	auto latency_measure_duration_ms = latency_measure_duration_sec * 1000.0f;
+	auto latency_measure_delay_until_start_ms = latency_measure_delay_until_start_sec * 1000.0f;
 
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;
@@ -281,13 +287,7 @@ int main(int argc, char** argv)
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
 
-	unsigned int seconds = 30;
-	unsigned int samples_per_second = 100; // roughtly application fps
-	unsigned int latency_sample_count = samples_per_second * seconds;
-
 	using SsboType = glm::uvec2;
-	std::vector<SsboType> latency_ssbo_values(latency_sample_count, SsboType{});
-	const auto latency_ssbo_memory_size = latency_ssbo_values.size() * sizeof(SsboType);
 	assert(SsboType{}.x == 0 && SsboType{}.y == 0);
 
 	struct LatencyMeasurements {
@@ -295,8 +295,6 @@ int main(int argc, char** argv)
 		unsigned int texture_frame_id = 0;
 		float frame_delay_ms = 0.f;
 	};
-	std::vector<LatencyMeasurements> latency_measurements(latency_sample_count, LatencyMeasurements{});
-	unsigned int latency_measurements_index = 0;
 
 	GLuint block_index = 0;
 	block_index = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, "LatencySsboDataBlock");
@@ -306,7 +304,21 @@ int main(int argc, char** argv)
 	GLuint latency_ssbo = 0;
 	glGenBuffers(1, &latency_ssbo);
 	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, ssbo_binding_point_index, latency_ssbo);
+
+	std::vector<LatencyMeasurements> latency_measurements;
+	std::vector<SsboType> latency_ssbo_values;
+	size_t latency_ssbo_memory_size = 0;
+	unsigned int latency_measurements_index = 0;
 	glBufferData(GL_SHADER_STORAGE_BUFFER, latency_ssbo_memory_size, latency_ssbo_values.data(), GL_DYNAMIC_READ);
+
+	auto set_latency_measurement_buffers = [&](unsigned int samples) {
+		unsigned int latency_sample_count = samples;
+		latency_measurements.resize(latency_sample_count, LatencyMeasurements{});
+		latency_ssbo_values.resize(latency_sample_count, SsboType{});
+		latency_ssbo_memory_size = latency_ssbo_values.size() * sizeof(SsboType);
+		std::cout << "SSBO: requesting buffer size " << latency_ssbo_memory_size / 1024 << " KB, " << latency_ssbo_memory_size / 1024 / 1024 << " MB" << std::endl;
+		glBufferData(GL_SHADER_STORAGE_BUFFER, latency_ssbo_memory_size, latency_ssbo_values.data(), GL_DYNAMIC_READ);
+	};
 
 	auto read_ssbo_data_from_gpu = [&]() {
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -388,6 +400,7 @@ int main(int argc, char** argv)
 	using FpMilliseconds = std::chrono::duration<float, std::chrono::milliseconds::period>;
 	auto program_start_time = std::chrono::high_resolution_clock::now();
 	auto current_time = std::chrono::high_resolution_clock::now();
+	auto latency_measure_started_time = std::chrono::high_resolution_clock::now();
 
 	std::vector<float> frame_durations(60, 0.0f);
 	float frame_durations_size = static_cast<float>(frame_durations.size());
@@ -399,18 +412,11 @@ int main(int argc, char** argv)
 
 	bool has_bbox = false;
 
-	mint::DataReceiver receive_close{"tcp://localhost:55555"};
-	receive_close.start("mintclose", interop::Endpoint::Connect);
+	mint::DataSender close_sender("tcp://127.0.0.1:12349");
+	close_sender.start(mint::Endpoint::Bind);
 
 	while (!glfwWindowShouldClose(window))
 	{
-		int should_close = 0;
-		if (receive_close.receive(should_close, "mintclose")) {
-			std::cout << "received remote close" << std::endl;
-			glfwSetWindowShouldClose(window, true);
-			data_sender.send(should_close, "mintclose");
-		}
-
 		frame_id++;
 
 		auto last_time = current_time;
@@ -496,16 +502,33 @@ int main(int argc, char** argv)
 		glUniform1i(uniform_texture_location, binding_point);
 
 		// start latency measurements
-		if (latency_measure_delay_until_start_sec > 0.0f && has_bbox && !latency_measure_active && FpMilliseconds(current_time - program_start_time).count() > latency_measure_delay_until_start_sec && latency_measurements_index == 0) {
+		if (latency_measure_delay_until_start_sec > 0.0f && has_bbox && !latency_measure_active && FpMilliseconds(current_time - program_start_time).count() > latency_measure_delay_until_start_ms && latency_measurements_index == 0) {
+			std::cout << "start latency measurements" << std::endl;
 			latency_measure_active = true;
+			float frame_ms = fps_average();
+			//we expect to roughly maintain our current fps during the latency measurements
+			auto frames_upper_bound = static_cast<unsigned int>(latency_measure_duration_ms / (frame_ms * 0.45f));
+			std::cout << "LATENCY: upper frame bound: " << frames_upper_bound << ", measure duration ms: " << latency_measure_duration_ms << ", frame ms: " << frame_ms << std::endl;
+
+			set_latency_measurement_buffers(frames_upper_bound);
+			auto latency_measure_started_time = current_time;
 		}
 		// stop latency measurements
-		if (latency_measure_active && latency_measurements_index >= latency_measurements.size()) {
+		if (latency_measure_active && (FpMilliseconds(current_time - latency_measure_started_time).count() > latency_measure_duration_ms || latency_measurements_index >= latency_measurements.size())) {
 			latency_measure_active = false;
 
 			read_ssbo_data_from_gpu();
 
 			std::string result = "# FrameID,GpuFrameID,FrameTimeDeltaMS\n";
+
+			if (latency_measurements_index > latency_measurements.size()) {
+				std::cout << "LATENCY: aborted due to too man entries" << std::endl;
+			}
+			if (latency_measurements_index < latency_measurements.size()) {
+				std::cout << "LATENCY: buffer not filled entirely, difference: " << latency_measurements.size() - latency_measurements_index << std::endl;
+				latency_measurements.resize(latency_measurements_index);
+				latency_ssbo_values.resize(latency_measurements_index);
+			}
 
 			auto cpu_iter = latency_measurements.begin();
 			for (auto pair : latency_ssbo_values) {
@@ -527,6 +550,7 @@ int main(int argc, char** argv)
 
 			}
 
+			std::cout << "writing measurements into " << latency_measure_output_file.string() << std::endl;
 			if (latency_measure_output_file.empty()) {
 				std::time_t time = std::time({});
 				char timeString[std::size("yyyy-mm-dd-hh-mm")];
@@ -541,6 +565,12 @@ int main(int argc, char** argv)
 					std::exit(EXIT_FAILURE);
 			}
 			file << result;
+
+			int should_close = 1;
+			close_sender.send(should_close, "mintclose");
+			data_sender.send(should_close, "mintclose");
+			std::cout << "sending remote close" << std::endl;
+			glfwSetWindowShouldClose(window, true);
 		}
 
 		// do latency measurements
@@ -573,12 +603,14 @@ int main(int argc, char** argv)
 
 	data_sender.stop();
 	data_receiver.stop();
-	receive_close.stop();
+	close_sender.stop();
 
 	fbo.destroy();
 	texture_receiver.destroy();
 
 	quad.destroy();
+
+	std::cout << "mint steering exit \naverage frame ms: " << fps_average() << std::endl;
 
 	glfwDestroyWindow(window);
 	glfwTerminate();

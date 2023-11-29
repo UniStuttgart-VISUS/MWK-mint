@@ -322,10 +322,10 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
   m_width = width;
   m_height = height;
 
-  m_spout->SetCPUmode(false);
+  m_spout->SetMemoryShareMode(false);
 
   bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
-  if (!m_spout->SetMemoryShareMode(spout_use_ram_mode))
+  if (!m_spout->SetCPUmode(spout_use_ram_mode))
       std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
 
   m_spout->SetMemoryShareMode(false);
@@ -397,10 +397,10 @@ void interop::TextureReceiver::init(std::string name) {
   m_name = texture_sharing_address + "/" + name;
   m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
-  m_spout->SetCPUmode(false);
+  m_spout->SetMemoryShareMode(false);
 
   bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
-  if (!m_spout->SetMemoryShareMode(spout_use_ram_mode))
+  if (!m_spout->SetCPUmode(spout_use_ram_mode))
       std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
 
   m_spout->SetDX9(false);
