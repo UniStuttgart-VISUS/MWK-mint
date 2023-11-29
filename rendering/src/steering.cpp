@@ -19,10 +19,10 @@
 #include <interop.hpp>
 
 glm::vec4 toGlm(const mint::vec4& v) {
-	return glm::vec4{v.x, v.y, v.z, v.w};
+	return glm::vec4{ v.x, v.y, v.z, v.w };
 }
 mint::vec4 toInterop(const glm::vec3& v) {
-	return mint::vec4{v.x, v.y, v.z, 0.0f};
+	return mint::vec4{ v.x, v.y, v.z, 0.0f };
 }
 glm::mat4 toGlm(const mint::mat4& m) {
 	return glm::mat4{
@@ -135,7 +135,7 @@ struct RenderVertices {
 	}
 };
 
-const char *vertex_shader_source =
+const char* vertex_shader_source =
 R"(
 	#version 430 core
 
@@ -173,7 +173,7 @@ R"(
 	}
 )";
 
-const char *fragment_shader_source =
+const char* fragment_shader_source =
 R"(
 	#version 430 core
 
@@ -195,7 +195,7 @@ int main(int argc, char** argv)
 	CLI::App app("mint steering");
 
 	mint::DataProtocol zmq_protocol = mint::DataProtocol::IPC;
-	std::map<std::string, mint::DataProtocol> map_zmq = {{"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP}};
+	std::map<std::string, mint::DataProtocol> map_zmq = { {"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP} };
 	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
 		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
 
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 	glfwSetKeyCallback(window, glfw_key_callback);
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(0);
-	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
+	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	glEnable(GL_DEBUG_OUTPUT);
 	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -260,21 +260,21 @@ int main(int argc, char** argv)
 	auto check_shader_compilation = [](auto& name, auto& shader) {
 		GLint isCompiled = 0;
 		glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
-		if(isCompiled == GL_FALSE)
+		if (isCompiled == GL_FALSE)
 		{
 			GLint maxLength = 0;
 			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
-		
+
 			std::vector<GLchar> errorLog(maxLength);
 			glGetShaderInfoLog(shader, maxLength, &maxLength, &errorLog[0]);
 
-			std::cout << "Shader Compilation Error " << name << ": " << std::string{(char*)errorLog.data()} << std::endl;
-		
+			std::cout << "Shader Compilation Error " << name << ": " << std::string{ (char*)errorLog.data() } << std::endl;
+
 			glDeleteShader(shader);
 
 			std::exit(EXIT_FAILURE);
 		}
-	};
+		};
 
 	vertex_shader = glCreateShader(GL_VERTEX_SHADER);
 	glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
@@ -323,7 +323,7 @@ int main(int argc, char** argv)
 		latency_ssbo_memory_size = latency_ssbo_values.size() * sizeof(SsboType);
 		std::cout << "SSBO: requesting buffer size " << latency_ssbo_memory_size / 1024 << " KB, " << latency_ssbo_memory_size / 1024 / 1024 << " MB" << std::endl;
 		glBufferData(GL_SHADER_STORAGE_BUFFER, latency_ssbo_memory_size, latency_ssbo_values.data(), GL_DYNAMIC_READ);
-	};
+		};
 
 	auto read_ssbo_data_from_gpu = [&]() {
 		glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -331,13 +331,13 @@ int main(int argc, char** argv)
 		void* p = glMapNamedBuffer(latency_ssbo, GL_READ_ONLY);
 		memcpy(latency_ssbo_values.data(), p, latency_ssbo_memory_size);
 		glUnmapNamedBuffer(latency_ssbo);
-	};
-	
+		};
+
 	GLuint uniform_texture_location = glGetUniformLocation(program, "texture_in"); // sampler2D
 	GLuint uniform_texture_size_location = glGetUniformLocation(program, "texture_size"); // ivec2
 	GLuint uniform_latency_measure_active = glGetUniformLocation(program, "latency_measure_active"); // int 
 	GLuint uniform_latency_measure_frame_id = glGetUniformLocation(program, "latency_measure_current_frame_id"); // int 
-	GLuint uniform_latency_measure_index= glGetUniformLocation(program, "latency_measure_current_index"); // int 
+	GLuint uniform_latency_measure_index = glGetUniformLocation(program, "latency_measure_current_index"); // int 
 
 	bool latency_measure_active = false;
 
@@ -373,9 +373,9 @@ int main(int argc, char** argv)
 	const auto cam_up = glm::vec3{ 0.0f, 1.0f, 0.0f };
 
 	mint::CameraView defaultCameraView;
-	defaultCameraView.eyePos    = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
+	defaultCameraView.eyePos = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
 	defaultCameraView.lookAtPos = toInterop(glm::vec3{ 0.0f });
-	defaultCameraView.camUpDir  = toInterop(cam_up);
+	defaultCameraView.camUpDir = toInterop(cam_up);
 
 	auto get_camera_view = [&](mint::BoundingBoxCorners& bbox) -> mint::CameraView {
 		auto diagonal = bbox.diagonal();
@@ -383,15 +383,15 @@ int main(int argc, char** argv)
 
 		mint::CameraView view;
 
-		view.eyePos    = center + diagonal*0.5f;
+		view.eyePos = center + diagonal * 0.5f;
 		view.lookAtPos = center;
-		view.camUpDir  = toInterop(cam_up);
+		view.camUpDir = toInterop(cam_up);
 
 		return view;
-	};
+		};
 
 	float fovy = 90.f;
-	float aspect_ratio = initialWidth/ (float) initialHeight;
+	float aspect_ratio = initialWidth / (float)initialHeight;
 	float near_p = 0.1f;
 	float far_p = 10.0f;
 
@@ -413,7 +413,7 @@ int main(int argc, char** argv)
 
 	auto fps_average = [&]() {
 		return std::accumulate(frame_durations.begin(), frame_durations.end(), 0.0f) / frame_durations_size;
-	};
+		};
 
 	bool has_bbox = false;
 
@@ -429,9 +429,9 @@ int main(int argc, char** argv)
 		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
 		frame_durations[frame_timing_index] = last_frame_duration;
 
-		if(frame_timing_index == 0){
+		if (frame_timing_index == 0) {
 			float frame_ms = fps_average();
-			std::string fps_info = " | " + std::to_string(frame_ms) + " ms/f | " + std::to_string(1000.0f / frame_ms) + " fps" ;
+			std::string fps_info = " | " + std::to_string(frame_ms) + " ms/f | " + std::to_string(1000.0f / frame_ms) + " fps";
 			std::string title = window_name + fps_info;
 			glfwSetWindowTitle(window, title.c_str());
 		}
@@ -439,7 +439,7 @@ int main(int argc, char** argv)
 
 		glfwGetFramebufferSize(window, &width, &height);
 
-		aspect_ratio = width / (float) height;
+		aspect_ratio = width / (float)height;
 		// default framebuffer
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -453,7 +453,7 @@ int main(int argc, char** argv)
 
 		mint::BoundingBoxCorners newBbox;
 		if (has_bbox = data_receiver.receive(newBbox)) {
-			if(newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
+			if (newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
 				defaultCameraView = get_camera_view(newBbox);
 				bboxCorners = newBbox;
 				std::cout << "New Bbox: ("
@@ -476,13 +476,13 @@ int main(int argc, char** argv)
 				return t2 * r * t1;
 			};
 
-		defaultCameraView.eyePos = toInterop(glm::vec3(rotate_around(glfwGetTime()*0.001f, glm::vec3(toGlm(defaultCameraView.lookAtPos)), glm::vec3(toGlm(defaultCameraView.camUpDir))) * toGlm(defaultCameraView.eyePos)));
+		defaultCameraView.eyePos = toInterop(glm::vec3(rotate_around(glfwGetTime() * 0.001f, glm::vec3(toGlm(defaultCameraView.lookAtPos)), glm::vec3(toGlm(defaultCameraView.camUpDir))) * toGlm(defaultCameraView.eyePos)));
 
 		stereoCameraView.leftEyeView = defaultCameraView;
 		stereoCameraView.leftEyeView.eyePos.w = glm::uintBitsToFloat(frame_id);
 		stereoCameraView.rightEyeView = defaultCameraView;
 		// actually draw different left/right cameras
-		stereoCameraView.rightEyeView.eyePos += 0.2*bboxCorners.diagonal();
+		stereoCameraView.rightEyeView.eyePos += 0.2 * bboxCorners.diagonal();
 
 		data_sender.send(stereoCameraView);
 		data_sender.send(cameraProjection);
@@ -490,7 +490,7 @@ int main(int argc, char** argv)
 		texture_receiver.receive();
 		auto texture_handle = texture_receiver.m_texture_handle;
 
-		if(width != fbo.m_width || height != fbo.m_height) {
+		if (width != fbo.m_width || height != fbo.m_height) {
 			fbo.resizeTexture(width, height);
 		}
 
@@ -563,11 +563,11 @@ int main(int argc, char** argv)
 				latency_measure_output_file = "mint_steering_frame_latency_measurements_" + std::string{ timeString } + ".txt";
 			}
 
-			std::ofstream file{latency_measure_output_file};
-			if(!file.good()){
-					std::cout << "\n" << result << "\n" << std::endl;
-					std::cout << "ERROR: COULD NOT OPEN FILE " << latency_measure_output_file.string() << std::endl;
-					std::exit(EXIT_FAILURE);
+			std::ofstream file{ latency_measure_output_file };
+			if (!file.good()) {
+				std::cout << "\n" << result << "\n" << std::endl;
+				std::cout << "ERROR: COULD NOT OPEN FILE " << latency_measure_output_file.string() << std::endl;
+				std::exit(EXIT_FAILURE);
 			}
 			file << result;
 
