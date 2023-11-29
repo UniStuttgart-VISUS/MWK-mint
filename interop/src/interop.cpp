@@ -324,7 +324,7 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
 
   m_spout->SetMemoryShareMode(false);
 
-  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
+  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::CPU;
   if (!m_spout->SetCPUmode(spout_use_ram_mode))
       std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
 
@@ -399,7 +399,7 @@ void interop::TextureReceiver::init(std::string name) {
 
   m_spout->SetMemoryShareMode(false);
 
-  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::RAM;
+  bool spout_use_ram_mode = session_texture_sharing == interop::ImageProtocol::CPU;
   if (!m_spout->SetCPUmode(spout_use_ram_mode))
       std::cout << "mint: setting spout texture sharing mode to CPU resulted in an error" << std::endl;
 
