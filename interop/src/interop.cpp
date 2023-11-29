@@ -191,10 +191,10 @@ std::string to_string(interop::ImageType side) {
 }
 
 void interop::init(Role r, DataProtocol dp, ImageProtocol ip) {
-    loadGlExtensions();
+	loadGlExtensions();
 
-    session_addresses = protocol_addresses[static_cast<unsigned int>(ip)].steering_rendering[static_cast<unsigned int>(r)];
-    session_texture_sharing = ip;
+	session_addresses = protocol_addresses[static_cast<unsigned int>(dp)].steering_rendering[static_cast<unsigned int>(r)];
+	session_texture_sharing = ip;
 }
 
 // GL functions are presented by Spout!

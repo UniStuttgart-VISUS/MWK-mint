@@ -196,9 +196,9 @@ int main(int argc, char** argv)
 	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
 		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
 
-	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
-	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
-	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
+	mint::ImageProtocol spout_protocol = mint::ImageProtocol::GPU;
+	std::map<std::string, mint::ImageProtocol> map_spout= {{"gpu", mint::ImageProtocol::GPU}, {"cpu", mint::ImageProtocol::CPU}, {"memshare", mint::ImageProtocol::MemShare}};
+	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing.")
 		->transform(CLI::CheckedTransformer(map_spout, CLI::ignore_case));
 
 	std::filesystem::path rendering_fps_target_ms_file = "mint_target_fps.txt";

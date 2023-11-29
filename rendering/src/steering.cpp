@@ -199,8 +199,8 @@ int main(int argc, char** argv)
 	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
 		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
 
-	mint::ImageProtocol spout_protocol = mint::ImageProtocol::VRAM;
-	std::map<std::string, mint::ImageProtocol> map_spout= {{"vram", mint::ImageProtocol::VRAM}, {"ram", mint::ImageProtocol::RAM}};
+	mint::ImageProtocol spout_protocol = mint::ImageProtocol::GPU;
+	std::map<std::string, mint::ImageProtocol> map_spout = { {"gpu", mint::ImageProtocol::GPU}, {"cpu", mint::ImageProtocol::CPU}, {"memshare", mint::ImageProtocol::MemShare} };
 	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing. Options: ram (shared memory), vram")
 		->transform(CLI::CheckedTransformer(map_spout, CLI::ignore_case));
 
@@ -213,10 +213,15 @@ int main(int argc, char** argv)
 	float latency_measure_delay_until_start_sec = 0.0f;
 	app.add_option("--latency-startup", latency_measure_delay_until_start_sec, "If positive, delay in seconds after startup until latency measurements begin");
 
+	std::vector<int> image_size = { 800, 600 };
+	auto* image_size_used = app.add_option("-i,--image-size", image_size, "Size of shared image: -i width height")->expected(2);
+
 	CLI11_PARSE(app, argc, argv);
 	// cli data available only after parsing!
 	auto latency_measure_duration_ms = latency_measure_duration_sec * 1000.0f;
 	auto latency_measure_delay_until_start_ms = latency_measure_delay_until_start_sec * 1000.0f;
+	if (image_size_used->count() > 0)
+		std::cout << "Texture Size: " << image_size[0] << "x" << image_size[1] << std::endl;
 
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;
@@ -392,7 +397,7 @@ int main(int argc, char** argv)
 
 	auto projection = glm::perspective(fovy, aspect_ratio, near_p, far_p);
 
-	int width = 800, height = 600;
+	int width = image_size[0], height = image_size[1];
 
 	mint::uint frame_id = 0;
 
