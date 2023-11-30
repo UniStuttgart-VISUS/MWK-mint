@@ -3,7 +3,7 @@ import zmq # pip install pyzmq
 import subprocess
 
 zmq_modes = ["ipc", "tcp"]
-spout_modes = ["gpu", "cpu", "memshare"]
+spout_modes = ["gpu", "memshare"] # "cpu" mode broken in Spout, textures remain black
 
 image_size = "1920 1080"
 
