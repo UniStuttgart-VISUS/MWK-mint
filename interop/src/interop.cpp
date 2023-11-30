@@ -429,7 +429,7 @@ void interop::TextureReceiver::destroy() {
 }
 
 void interop::TextureReceiver::receive() {
-	uint width = 1, height = 1;
+	uint width = m_width, height = m_height;
 
 	const auto make_texture = [&]() {
 		glBindTexture(GL_TEXTURE_2D, m_texture_handle);
@@ -453,13 +453,13 @@ void interop::TextureReceiver::receive() {
 		mglGenFramebuffersEXT(1, &m_target_fbo);
 	}
 
-	bool connected = false;
-	if (!m_spout->CheckReceiver(const_cast<char*>(m_name.c_str()), width,
-		height, connected) && session_texture_sharing == mint::ImageProtocol::GPU) {
-		std::cout << "SPOUT receive texture failed check, connected? " << (connected ? "yes" : "no") << std::endl;
-		std::cout << "SPOUT: name: " << m_name << ", width: " << width << ", height: " << height << std::endl;
-		return;
-	}
+	//bool connected = false;
+	//if (!m_spout->CheckReceiver(const_cast<char*>(m_name.c_str()), width,
+	//	height, connected) && session_texture_sharing == mint::ImageProtocol::GPU) {
+	//	std::cout << "SPOUT receive texture failed check, connected? " << (connected ? "yes" : "no") << std::endl;
+	//	std::cout << "SPOUT: name: " << m_name << ", width: " << width << ", height: " << height << std::endl;
+	//	return;
+	//}
 
 	if (!m_spout->ReceiveTexture(const_cast<char*>(m_name.c_str()), width,
 		height
