@@ -1071,13 +1071,13 @@ namespace interop {
     return false;                                                              \
   }
 
-#define make_name(DataTypeName) \
+#define make_name(DataType, DataTypeName) \
     template <> \
-    std::string interop::to_data_name(DataTypeName const& v) { return std::string{#DataTypeName}; }
-make_name(interop::BoundingBoxCorners);
-make_name(interop::CameraProjection);
-make_name(interop::StereoCameraView);
-make_name(interop::StereoCameraViewRelative);
+    std::string interop::to_data_name(DataType const& v) { return std::string{#DataTypeName}; }
+make_name(interop::BoundingBoxCorners, BoundingBoxCorners);
+make_name(interop::CameraProjection, CameraProjection);
+make_name(interop::StereoCameraView, StereoCameraView);
+make_name(interop::StereoCameraViewRelative, StereoCameraViewRelative);
 #undef make_name
 
 #define make_named_receive(DataTypeName) \
