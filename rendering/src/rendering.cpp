@@ -190,8 +190,10 @@ void APIENTRY opengl_debug_message_callback(
 int main(int argc, char** argv)
 {
 	CLI::App app("mint rendering");
+	app.set_config("--config", "mint.config", "Config file containing CLI options in TOML format", false);
+	app.allow_config_extras(true);
 
-	mint::DataProtocol zmq_protocol = mint::DataProtocol::IPC;
+	mint::DataProtocol zmq_protocol = mint::DataProtocol::TCP;
 	std::map<std::string, mint::DataProtocol> map_zmq = { {"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP} };
 	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
 		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
@@ -201,56 +203,12 @@ int main(int argc, char** argv)
 	app.add_option("--spout", spout_protocol, "Spout protocol to use for texture sharing.")
 		->transform(CLI::CheckedTransformer(map_spout, CLI::ignore_case));
 
-	std::filesystem::path rendering_fps_target_ms_file = "mint_target_fps.txt";
-	auto* fps_file_opt = app.add_option("-f,--render-file", rendering_fps_target_ms_file, "File containing target frame time in miliseconds, as in --render-ms option");
-	// todo
-
 	float rendering_fps_target_ms = 0.0;
 	auto* fps_opt_opt = app.add_option("-r,--render-ms", rendering_fps_target_ms, "Frame time in miliseconds to target via render loop delay");
-	// todo
 
 	CLI11_PARSE(app, argc, argv);
 
-	{
-		bool option_used_file_fps = fps_file_opt->count() > 0;
-		bool option_used_cli_fps = fps_opt_opt->count() > 0;
-
-		auto cli_fps_target = rendering_fps_target_ms;
-		float file_fps_target = [&]() -> float {
-			std::ifstream file{ rendering_fps_target_ms_file };
-
-			// if loaded file implicitly
-			if (!file.good()) {
-				return -1.0f;
-			}
-
-			if (option_used_file_fps && !file.good()) {
-				std::cout << "ERROR opening target render fps file: " << rendering_fps_target_ms_file << std::endl;
-				std::exit(EXIT_FAILURE);
-			}
-
-			float file_delay = -1.0f;
-			file >> file_delay;
-
-			return file_delay;
-			}();
-
-			if (option_used_file_fps && !(file_fps_target >= 0.0f)) {
-				std::cout << "ERROR reading value from render fps file: " << rendering_fps_target_ms_file << std::endl;
-				std::exit(EXIT_FAILURE);
-			}
-
-			if (option_used_file_fps && file_fps_target >= 0.0f)
-				rendering_fps_target_ms = file_fps_target;
-
-			if (file_fps_target >= 0.0f)
-				rendering_fps_target_ms = file_fps_target;
-
-			if (option_used_cli_fps)
-				rendering_fps_target_ms = cli_fps_target;
-
-			std::cout << "rendering with fps target: " << rendering_fps_target_ms << " ms" << std::endl;
-	}
+	std::cout << "rendering with fps target: " << rendering_fps_target_ms << " ms" << std::endl;
 
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;

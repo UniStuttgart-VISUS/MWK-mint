@@ -193,8 +193,10 @@ R"(
 int main(int argc, char** argv)
 {
 	CLI::App app("mint steering");
+	app.set_config("--config", "mint.config", "Config file containing CLI options in TOML format", false);
+	app.allow_config_extras(true);
 
-	mint::DataProtocol zmq_protocol = mint::DataProtocol::IPC;
+	mint::DataProtocol zmq_protocol = mint::DataProtocol::TCP;
 	std::map<std::string, mint::DataProtocol> map_zmq = { {"ipc", mint::DataProtocol::IPC}, {"tcp", mint::DataProtocol::TCP} };
 	app.add_option("--zmq", zmq_protocol, "ZeroMQ protocol to use for data channels. Options: ipc, tcp")
 		->transform(CLI::CheckedTransformer(map_zmq, CLI::ignore_case));
