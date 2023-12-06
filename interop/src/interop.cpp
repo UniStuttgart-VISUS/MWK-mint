@@ -428,7 +428,7 @@ void interop::TextureReceiver::destroy() {
 	m_spout->ReleaseReceiver();
 }
 
-void interop::TextureReceiver::receive() {
+bool interop::TextureReceiver::receive() {
 	uint width = m_width, height = m_height;
 
 	const auto make_texture = [&]() {
@@ -465,8 +465,8 @@ void interop::TextureReceiver::receive() {
 		height
 		, m_texture_handle, GL_TEXTURE_2D, true /*invert*/, 0
 	)) {
-		std::cout << "SPOUT failed to receive texture" << std::endl;
-		return;
+		//std::cout << "SPOUT failed to receive texture" << std::endl;
+		return false;
 	}
 
 	if (m_width != width || m_height != height) {
@@ -510,6 +510,8 @@ void interop::TextureReceiver::receive() {
 	//m_spout->UnBindSharedTexture();
 
 	restorePreviousFbo(&fbo_backup);
+
+	return true;
 }
 #undef m_spout
 

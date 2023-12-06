@@ -82,7 +82,7 @@ namespace interop {
 		void init(ImageType type, std::string name = "");
 
 		void destroy();
-		void receive();
+		bool receive();
 
 		std::string m_name = "";
 		uint m_width = 0;

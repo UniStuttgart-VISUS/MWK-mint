@@ -366,8 +366,13 @@ int main(int argc, char** argv)
 	mint::glFramebuffer fbo;
 	fbo.init();
 
-	mint::TextureReceiver texture_receiver;
-	texture_receiver.init(mint::ImageType::SingleStereo);
+	mint::TextureReceiver texture_receiver_stereo;
+	texture_receiver_stereo.init(mint::ImageType::SingleStereo);
+
+	mint::TextureReceiver texture_receiver_left;
+	texture_receiver_left.init(mint::ImageType::LeftEye);
+	mint::TextureReceiver texture_receiver_right;
+	texture_receiver_right.init(mint::ImageType::RightEye);
 
 	mint::DataSender data_sender;
 	data_sender.start();
@@ -520,8 +525,18 @@ int main(int argc, char** argv)
 		data_sender.send(stereoCameraView);
 		data_sender.send(cameraProjection);
 
-		texture_receiver.receive();
-		auto texture_handle = texture_receiver.m_texture_handle;
+		bool has_stereo_image = texture_receiver_stereo.receive();
+		bool has_left_image = texture_receiver_left.receive();
+		bool has_right_image = texture_receiver_right.receive();
+
+		auto texture_handle = has_stereo_image
+			? (texture_receiver_stereo.m_texture_handle)
+			: (has_left_image
+				? texture_receiver_left.m_texture_handle
+				: has_right_image ? texture_receiver_right.m_texture_handle : 0);
+
+		if (!texture_handle)
+			std::cout << "mint steering: no texture(s) received" << std::endl;
 
 		if (fbo_width != fbo.m_width || fbo_height != fbo.m_height) {
 			fbo.resizeTexture(fbo_width, fbo_height);
@@ -649,7 +664,9 @@ int main(int argc, char** argv)
 	close_sender.stop();
 
 	fbo.destroy();
-	texture_receiver.destroy();
+	texture_receiver_stereo.destroy();
+	texture_receiver_left.destroy();
+	texture_receiver_right.destroy();
 
 	quad.destroy();
 

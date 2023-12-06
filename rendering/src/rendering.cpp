@@ -187,6 +187,58 @@ void APIENTRY opengl_debug_message_callback(
 				std::cout << "OpenGL Error: " << message << std::endl;
 }
 
+enum class TextureSenderMode {
+	All = 0,
+	Single,
+	Stereo,
+};
+struct TextureSenders {
+	TextureSenderMode mode;
+	mint::StereoTextureSender stereotextureSender;
+	mint::TextureSender lefttextureSender;
+	mint::TextureSender righttextureSender;
+
+	explicit TextureSenders(TextureSenderMode m) : mode{ m } {
+		switch (mode)
+		{
+		case TextureSenderMode::All:
+			stereotextureSender.init();
+			lefttextureSender.init(mint::ImageType::LeftEye);
+			righttextureSender.init(mint::ImageType::RightEye);
+			break;
+		case TextureSenderMode::Single:
+			lefttextureSender.init(mint::ImageType::LeftEye);
+			righttextureSender.init(mint::ImageType::RightEye);
+			break;
+		case TextureSenderMode::Stereo:
+			stereotextureSender.init();
+			break;
+		default:
+			break;
+		}
+	}
+
+	void destroy() {
+		switch (mode)
+		{
+		case TextureSenderMode::All:
+			stereotextureSender.destroy();
+			lefttextureSender.destroy();
+			righttextureSender.destroy();
+			break;
+		case TextureSenderMode::Single:
+			lefttextureSender.destroy();
+			righttextureSender.destroy();
+			break;
+		case TextureSenderMode::Stereo:
+			stereotextureSender.destroy();
+			break;
+		default:
+			break;
+		}
+	}
+};
+
 int main(int argc, char** argv)
 {
 	CLI::App app("mint rendering");
@@ -209,9 +261,32 @@ int main(int argc, char** argv)
 	bool vsync = false;
 	app.add_flag("--vsync", vsync, "Whether to activate vsync for this process");
 
+	TextureSenderMode texture_sender_mode = TextureSenderMode::All;
+	std::map<std::string, TextureSenderMode> map_txtrsend = { {"all", TextureSenderMode::All}, {"single", TextureSenderMode::Single}, {"stereo", TextureSenderMode::Stereo} };
+	app.add_option("--texture-send", texture_sender_mode, "Whether to send single left+right textures, stereo texture, or all")
+		->transform(CLI::CheckedTransformer(map_txtrsend, CLI::ignore_case));
+
+	auto txtr_to_string = [](TextureSenderMode mode) -> std::string {
+		switch (mode)
+		{
+		case TextureSenderMode::All:
+			return "single + stereo";
+			break;
+		case TextureSenderMode::Single:
+			return "single textures";
+			break;
+		case TextureSenderMode::Stereo:
+			return "stereo texture";
+			break;
+		default:
+			break;
+		}
+		};
+
 	CLI11_PARSE(app, argc, argv);
 
 	std::cout << "rendering with fps target: " << rendering_fps_target_ms << " ms" << std::endl;
+	std::cout << "rendering sends texture: " << txtr_to_string(texture_sender_mode) << std::endl;
 
 	GLFWwindow* window;
 	GLuint vertex_shader, fragment_shader, program;
@@ -292,11 +367,6 @@ int main(int argc, char** argv)
 	mint::glFramebuffer fbo_right;
 	fbo_right.init();
 
-	mint::TextureSender ts_left;
-	ts_left.init(mint::ImageType::LeftEye);
-	mint::TextureSender ts_right;
-	ts_right.init(mint::ImageType::RightEye);
-
 	mint::DataReceiver data_receiver;
 	data_receiver.start();
 
@@ -316,8 +386,7 @@ int main(int argc, char** argv)
 		mint::vec4{2.0f * offset.x, 2.0f * offset.y, 2.0f * offset.z, 1.0f}
 	};
 
-	mint::StereoTextureSender stereotextureSender;
-	stereotextureSender.init();
+	TextureSenders textureSender{ texture_sender_mode };
 
 	mint::CameraView defaultCameraView;
 	defaultCameraView.eyePos = toInterop(glm::vec3{ 0.0f, 0.0f, 3.0f });
@@ -423,7 +492,7 @@ int main(int argc, char** argv)
 
 		received_data |= data_receiver.receive<mint::StereoCameraViewRelative>(stereoCameraView);
 
-		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender& ts)
+		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender* ts)
 			{
 				if (hasNewWindowSize || width != fbo.m_width || height != fbo.m_height) {
 					fbo.resizeTexture(width, height);
@@ -454,12 +523,31 @@ int main(int argc, char** argv)
 				bbox.unbind();
 
 				fbo.unbind();
-				ts.send(fbo.m_glTextureRGBA8, width, height);
-				fbo.blitTexture(); // blit custom fbo to default framebuffer
+				if (ts) {
+					ts->send(fbo.m_glTextureRGBA8, width, height);
+					fbo.blitTexture(); // blit custom fbo to default framebuffer
+				}
 			};
 
-		render(stereoCameraView.leftEyeView, fbo_left, ts_left);
-		render(stereoCameraView.rightEyeView, fbo_right, ts_right);
+		mint::TextureSender* left_sender_ptr = nullptr;
+		mint::TextureSender* right_sender_ptr = nullptr;
+		switch (texture_sender_mode)
+		{
+		case TextureSenderMode::All:
+			[[fallthrough]];
+		case TextureSenderMode::Single:
+			left_sender_ptr = &textureSender.lefttextureSender;
+			right_sender_ptr = &textureSender.righttextureSender;
+			break;
+		case TextureSenderMode::Stereo:
+			left_sender_ptr = nullptr;
+			right_sender_ptr = nullptr;
+			break;
+		default:
+			break;
+		}
+		render(stereoCameraView.leftEyeView, fbo_left, left_sender_ptr);
+		render(stereoCameraView.rightEyeView, fbo_right, right_sender_ptr);
 
 		// embedd frame id from steering in texture
 		mint::uint steering_frame_id = 0;
@@ -467,7 +555,18 @@ int main(int argc, char** argv)
 		mint::uint rendering_last_frame_ms = 0;
 		rendering_last_frame_ms = glm::floatBitsToUint(last_frame_ms);
 
-		stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id, rendering_last_frame_ms);
+		switch (texture_sender_mode)
+		{
+		case TextureSenderMode::All:
+			[[fallthrough]];
+		case TextureSenderMode::Stereo:
+			textureSender.stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id, rendering_last_frame_ms);
+			break;
+		case TextureSenderMode::Single:
+			break;
+		default:
+			break;
+		}
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -480,9 +579,7 @@ int main(int argc, char** argv)
 
 	fbo_left.destroy();
 	fbo_right.destroy();
-	ts_left.destroy();
-	ts_right.destroy();
-	stereotextureSender.destroy();
+	textureSender.destroy();
 
 	quad.destroy();
 	bbox.destroy();
