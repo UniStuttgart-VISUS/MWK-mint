@@ -424,7 +424,7 @@ int main(int argc, char** argv)
 	while (!glfwWindowShouldClose(window))
 	{
 		int should_close = 0;
-		if (data_receiver.receive(should_close, "mintclose")) {
+		if (data_receiver.receive(should_close, "mintclose") && should_close) {
 			std::cout << "received remote close" << std::endl;
 			glfwSetWindowShouldClose(window, true);
 		}

@@ -439,6 +439,7 @@ int main(int argc, char** argv)
 
 	bool has_bbox = false;
 
+	// the benchmark uses IPC for zmq, but need to signal the close using TCP to python
 	mint::DataSender close_sender("tcp://127.0.0.1:12349");
 	close_sender.start(mint::Endpoint::Bind);
 
