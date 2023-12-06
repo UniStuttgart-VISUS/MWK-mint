@@ -417,6 +417,7 @@ int main(int argc, char** argv)
 				width = cameraProjection.pixelWidth;
 				height = cameraProjection.pixelHeight;
 				glfwSetWindowSize(window, width, height);
+				std::cout << "texture size from projection: " << width << "x" << height << std::endl;
 			}
 		}
 

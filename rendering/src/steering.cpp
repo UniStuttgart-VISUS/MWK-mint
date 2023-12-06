@@ -243,8 +243,8 @@ int main(int argc, char** argv)
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	int initialWidth = 640;
-	int initialHeight = 480;
+	int initialWidth = image_size[0];
+	int initialHeight = image_size[1];
 	std::string window_name = "mint steering";
 	window = glfwCreateWindow(initialWidth, initialHeight, window_name.c_str(), NULL, NULL);
 	if (!window)
@@ -410,7 +410,7 @@ int main(int argc, char** argv)
 
 	auto projection = glm::perspective(fovy, aspect_ratio, near_p, far_p);
 
-	int width = image_size[0], height = image_size[1];
+	int fbo_width = 0, fbo_height = 0;
 
 	mint::uint frame_id = 0;
 
@@ -456,19 +456,19 @@ int main(int argc, char** argv)
 		}
 		frame_timing_index = (frame_timing_index + 1) % frame_durations.size();
 
-		glfwGetFramebufferSize(window, &width, &height);
+		glfwGetFramebufferSize(window, &fbo_width, &fbo_height);
 
-		aspect_ratio = width / (float)height;
+		aspect_ratio = fbo_width / (float)fbo_height;
 		// default framebuffer
-		glViewport(0, 0, width, height);
+		glViewport(0, 0, fbo_width, fbo_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		cameraProjection.fieldOfViewY_rad = fovy;
 		cameraProjection.nearClipPlane = near_p;
 		cameraProjection.farClipPlane = far_p;
 		cameraProjection.aspect = aspect_ratio;
-		cameraProjection.pixelWidth = width;
-		cameraProjection.pixelHeight = height;
+		cameraProjection.pixelWidth = fbo_width;
+		cameraProjection.pixelHeight = fbo_height;
 
 		mint::BoundingBoxCorners newBbox;
 		auto timestamp = std::make_optional(std::pair<std::string, std::string>{"timestamp", "0"});
@@ -523,13 +523,13 @@ int main(int argc, char** argv)
 		texture_receiver.receive();
 		auto texture_handle = texture_receiver.m_texture_handle;
 
-		if (width != fbo.m_width || height != fbo.m_height) {
-			fbo.resizeTexture(width, height);
+		if (fbo_width != fbo.m_width || fbo_height != fbo.m_height) {
+			fbo.resizeTexture(fbo_width, fbo_height);
 		}
 
 		// render into custom framebuffer
 		fbo.bind();
-		glViewport(0, 0, width, height);
+		glViewport(0, 0, fbo_width, fbo_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glUseProgram(program);
@@ -629,7 +629,7 @@ int main(int argc, char** argv)
 		glUniform1i(uniform_latency_measure_active, latency_measure_active ? 1 : 0);
 		glUniform1i(uniform_latency_measure_frame_id, static_cast<int>(frame_id));
 		glUniform1i(uniform_latency_measure_index, static_cast<int>(latency_ssbo_index));
-		glUniform2i(uniform_texture_size_location, width, height);
+		glUniform2i(uniform_texture_size_location, fbo_width, fbo_height);
 
 		//std::this_thread::sleep_for(1s);
 
