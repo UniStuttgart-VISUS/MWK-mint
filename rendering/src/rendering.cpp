@@ -206,6 +206,9 @@ int main(int argc, char** argv)
 	float rendering_fps_target_ms = 0.0;
 	auto* fps_opt_opt = app.add_option("-r,--render-ms", rendering_fps_target_ms, "Frame time in miliseconds to target via render loop delay");
 
+	bool vsync = false;
+	app.add_flag("--vsync", vsync, "Whether to activate vsync for this process");
+
 	CLI11_PARSE(app, argc, argv);
 
 	std::cout << "rendering with fps target: " << rendering_fps_target_ms << " ms" << std::endl;
@@ -231,7 +234,7 @@ int main(int argc, char** argv)
 	}
 	glfwSetKeyCallback(window, glfw_key_callback);
 	glfwMakeContextCurrent(window);
-	glfwSwapInterval(0);
+	glfwSwapInterval(vsync ? 1 : 0);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	glEnable(GL_DEBUG_OUTPUT);
@@ -335,10 +338,15 @@ int main(int argc, char** argv)
 	auto program_start_time = std::chrono::high_resolution_clock::now();
 	auto current_time = std::chrono::high_resolution_clock::now();
 
+
+	std::string current_time_string = std::to_string(current_time.time_since_epoch().count());
+	std::cout << "rendering program_start_time: " << current_time_string << std::endl;
+
 	std::vector<float> frame_durations(60, 0.0f);
 	float frame_durations_size = static_cast<float>(frame_durations.size());
 	unsigned int frame_timing_index = 0;
 	float last_fps_wait = 0.0f;
+	float last_frame_ms = 0.0f;
 
 	auto fps_average = [&]() {
 		return std::accumulate(frame_durations.begin(), frame_durations.end(), 0.0f) / frame_durations_size;
@@ -356,6 +364,8 @@ int main(int argc, char** argv)
 		current_time = std::chrono::high_resolution_clock::now();
 		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
 		frame_durations[frame_timing_index] = last_frame_duration;
+		last_frame_ms = last_frame_duration;
+		current_time_string = std::to_string(current_time.time_since_epoch().count());
 
 		if (rendering_fps_target_ms > 0.0f) {
 			auto diff = rendering_fps_target_ms - last_frame_duration;
@@ -377,7 +387,7 @@ int main(int argc, char** argv)
 		glViewport(0, 0, width, height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		data_sender.send(bboxCorners);
+		data_sender.send(bboxCorners, mint::to_data_name(bboxCorners), std::pair{ std::string("timestamp"), current_time_string });
 
 		const auto getModelMatrix = [](mint::ModelPose& mp) -> glm::mat4 {
 			const glm::vec4 modelTranslate = toGlm(mp.translation);
@@ -453,8 +463,10 @@ int main(int argc, char** argv)
 		// embedd frame id from steering in texture
 		mint::uint steering_frame_id = 0;
 		steering_frame_id = glm::floatBitsToUint(stereoCameraView.leftEyeView.eyePos.w);
+		mint::uint rendering_last_frame_ms = 0;
+		rendering_last_frame_ms = glm::floatBitsToUint(last_frame_ms);
 
-		stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id);
+		stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id, rendering_last_frame_ms);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

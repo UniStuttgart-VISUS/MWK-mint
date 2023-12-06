@@ -8,6 +8,7 @@
 #include <thread>
 #include <unordered_map>
 #include <mutex>
+#include <utility>
 
 namespace interop {
 
@@ -104,11 +105,11 @@ namespace interop {
 		void destroy();
 		void send(glFramebuffer& fb_left, glFramebuffer& fb_right,
 			const uint width, const uint height,
-			const uint meta_data = 0);
+			const uint meta_data = 0, const uint meta_data_2 = 0);
 		void send(const uint color_left, const uint color_right,
 			const uint depth_left, const uint depth_right,
 			const uint width, const uint height,
-			const uint meta_data = 0);
+			const uint meta_data = 0, const uint meta_data_2 = 0);
 
 		std::string m_name = "";
 		uint m_width = 0;
@@ -121,14 +122,14 @@ namespace interop {
 		void makeHugeTexture(const uint originalWidth, const uint originalHeight);
 		uint m_shader = 0;
 		uint m_vao = 0;
-		uint m_uniform_locations[5] = { 0 };
+		uint m_uniform_locations[7] = { 0 };
 		void initGLresources();
 		void destroyGLresources();
 		void blitTextures(const uint color_left_texture,
 			const uint color_right_texture,
 			const uint depth_left_texture,
 			const uint depth_right_texture, const uint width,
-			const uint height, const uint meta_data);
+			const uint height, const uint meta_data, const uint meta_data_2 = 0);
 
 		static_assert(sizeof(uint) == 4, "unigned int expected to be 4 bytes");
 	};
@@ -152,7 +153,7 @@ namespace interop {
 		bool send(DataType const& v);
 
 		template <typename DataType>
-		bool send(DataType const& v, std::string const& filterName);
+		bool send(DataType const& v, std::string const& filterName, std::optional<std::pair<std::string/*name*/, std::string/*value*/>> const& maybe_extra = std::nullopt);
 
 		std::shared_ptr<void> m_sender;
 		std::string m_address;
@@ -168,6 +169,7 @@ namespace interop {
 
 		template <typename Datatype> bool receive(Datatype& v);
 		template <typename Datatype> bool receive(Datatype& v, const std::string& filterName);
+		template <typename Datatype> bool receive(Datatype& v, const std::string& filterName, std::optional<std::pair<std::string/*name*/, std::string/*value*/>>& maybe_extra);
 		std::optional<std::string> receiveCopy(const std::string& filterName = "");
 
 		//std::shared_ptr<void> m_receiver;
@@ -315,7 +317,15 @@ namespace interop {
 	// converter functions to fill inteorp struct from Json string received by
 	// DataReceiver
 #define make_dataGet(DataTypeName)                                             \
-  template <> bool DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName);
+  template <> bool DataReceiver::receive<DataTypeName>(\
+	DataTypeName &v, \
+	const std::string &filterName, \
+ 	std::optional<std::pair<std::string,std::string>>& maybe_extra );\
+	\
+	template <> bool DataReceiver::receive<DataTypeName>(\
+		DataTypeName& v, \
+		const std::string& filterName \
+);
 
 	make_dataGet(BoundingBoxCorners);
 	make_dataGet(DatasetRenderConfiguration);
@@ -339,7 +349,10 @@ namespace interop {
 #define make_send(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      DataTypeName const &v, std::string const &filterName);
+	DataTypeName const &v, \
+	std::string const &filterName, \
+ 	std::optional<std::pair<std::string,std::string>> const& maybe_extra \
+);
 
 	make_send(BoundingBoxCorners);
 	make_send(DatasetRenderConfiguration);

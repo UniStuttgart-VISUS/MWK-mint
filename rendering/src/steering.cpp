@@ -149,7 +149,7 @@ R"(
 
 	layout (std430, binding=2) buffer LatencySsboDataBlock
 	{ 
-	  uvec2 data[]; // x = render loop frame if, y = incoming texture frame id
+	  uvec4 data[]; // x = render loop frame id, y = incoming texture frame id
 	} ssbo_data;
 
 	const vec4 unitQuad[4] =
@@ -166,9 +166,15 @@ R"(
 
 		if(gl_VertexID == 0 && latency_measure_active > 0) {
 			// reverses: FragColor = unpackUnorm4x8(uint(meta_data))
-			vec4 id_raw = texelFetch(texture_in, ivec2(0,0), 0);
-			uint texture_frame_id = packUnorm4x8(id_raw);
-			ssbo_data.data[latency_measure_current_index] = uvec2(latency_measure_current_frame_id, texture_frame_id);
+			vec4 steering_id_raw = texelFetch(texture_in, ivec2(0,0), 0);
+			vec4 renderer_fps_raw = texelFetch(texture_in, ivec2(1,0), 0);
+			uint texture_frame_id = packUnorm4x8(steering_id_raw);
+			uint texture_renderer_fps = packUnorm4x8(renderer_fps_raw);
+			ssbo_data.data[latency_measure_current_index] = uvec4(
+				latency_measure_current_frame_id,
+				texture_frame_id,
+				texture_renderer_fps,
+				0);
 		}
 	}
 )";
@@ -218,6 +224,9 @@ int main(int argc, char** argv)
 	std::vector<int> image_size = { 800, 600 };
 	auto* image_size_used = app.add_option("-i,--image-size", image_size, "Size of shared image: -i width height")->expected(2);
 
+	bool vsync = false;
+	app.add_flag("--vsync", vsync, "Whether to activate vsync for this process");
+
 	CLI11_PARSE(app, argc, argv);
 	// cli data available only after parsing!
 	auto latency_measure_duration_ms = latency_measure_duration_sec * 1000.0f;
@@ -245,7 +254,7 @@ int main(int argc, char** argv)
 	}
 	glfwSetKeyCallback(window, glfw_key_callback);
 	glfwMakeContextCurrent(window);
-	glfwSwapInterval(0);
+	glfwSwapInterval(vsync ? 1 : 0);
 	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
 	glEnable(GL_DEBUG_OUTPUT);
@@ -294,13 +303,15 @@ int main(int argc, char** argv)
 	glDeleteShader(vertex_shader);
 	glDeleteShader(fragment_shader);
 
-	using SsboType = glm::uvec2;
+	using SsboType = glm::uvec4;
 	assert(SsboType{}.x == 0 && SsboType{}.y == 0);
 
 	struct LatencyMeasurements {
 		unsigned int frame_id = 0;
 		unsigned int texture_frame_id = 0;
-		float frame_delay_ms = 0.f;
+		float steering_wall_clock_ms = 0.f;
+		float steering_fps_ms = 0.f;
+		float rendering_fps_ms = 0.f;
 	};
 
 	GLuint block_index = 0;
@@ -409,9 +420,13 @@ int main(int argc, char** argv)
 	auto current_time = std::chrono::high_resolution_clock::now();
 	auto latency_measure_started_time = std::chrono::high_resolution_clock::now();
 
+	std::string current_time_string = std::to_string(current_time.time_since_epoch().count());
+	std::cout << "steering program_start_time: " << current_time_string << std::endl;
+
 	std::vector<float> frame_durations(60, 0.0f);
 	float frame_durations_size = static_cast<float>(frame_durations.size());
 	unsigned int frame_timing_index = 0;
+	float last_frame_ms = 0.0f;
 
 	auto fps_average = [&]() {
 		return std::accumulate(frame_durations.begin(), frame_durations.end(), 0.0f) / frame_durations_size;
@@ -430,6 +445,8 @@ int main(int argc, char** argv)
 		current_time = std::chrono::high_resolution_clock::now();
 		auto last_frame_duration = FpMilliseconds(current_time - last_time).count();
 		frame_durations[frame_timing_index] = last_frame_duration;
+		last_frame_ms = last_frame_duration;
+		current_time_string = std::to_string(current_time.time_since_epoch().count());
 
 		if (frame_timing_index == 0) {
 			float frame_ms = fps_average();
@@ -454,7 +471,8 @@ int main(int argc, char** argv)
 		cameraProjection.pixelHeight = height;
 
 		mint::BoundingBoxCorners newBbox;
-		if (has_bbox = data_receiver.receive(newBbox)) {
+		auto timestamp = std::make_optional(std::pair<std::string, std::string>{"timestamp", "0"});
+		if (has_bbox = data_receiver.receive(newBbox, mint::to_data_name(newBbox), timestamp)) {
 			if (newBbox.min != bboxCorners.min || newBbox.max != bboxCorners.max) {
 				defaultCameraView = get_camera_view(newBbox);
 				bboxCorners = newBbox;
@@ -466,6 +484,19 @@ int main(int argc, char** argv)
 					<< bboxCorners.max.y << ", "
 					<< bboxCorners.max.z << ") "
 					<< std::endl;
+
+				if (timestamp.has_value()) {
+					auto rendering_bbox_send_frame_start_ns = timestamp.value().second;
+					auto steering_bbox_receive_frame_start_ns = current_time_string;
+
+					std::cout << "steering bbox receive frame start: " << steering_bbox_receive_frame_start_ns << std::endl;
+					std::cout << "rendering bbox send frame start:   " << rendering_bbox_send_frame_start_ns << std::endl;
+					std::cout << "bbox send/receive frame start diff: "
+						<< static_cast<double>(std::stoull(steering_bbox_receive_frame_start_ns)
+							- std::stoull(rendering_bbox_send_frame_start_ns)) / 1000000.0
+						<< " ms"
+						<< std::endl;
+				}
 			}
 		}
 
@@ -526,7 +557,7 @@ int main(int argc, char** argv)
 
 			read_ssbo_data_from_gpu();
 
-			std::string result = "# FrameID,GpuFrameID,FrameTimeDeltaMS\n";
+			std::string result = "# FrameID,GpuFrameID,FrameTimeDeltaMS,WallClockMS,RenderingFrameDeltaMS\n";
 
 			if (latency_measurements_index > latency_measurements.size()) {
 				std::cout << "LATENCY: aborted due to too man entries" << std::endl;
@@ -547,13 +578,16 @@ int main(int argc, char** argv)
 				}
 
 				cpu.texture_frame_id = pair.y;
+				cpu.rendering_fps_ms = glm::uintBitsToFloat(pair.z);
 				cpu_iter++;
 
 				result +=
 					std::to_string(cpu.frame_id) + ","
 					+ std::to_string(cpu.texture_frame_id) + ","
-					+ std::to_string(cpu.frame_delay_ms) + "\n";
-				//std::cout << "FrameId=" << cpu.frame_id << ", TexId=" << cpu.texture_frame_id << ", deltaMS= " << cpu.frame_delay_ms <<std::endl;
+					+ std::to_string(cpu.steering_fps_ms) + ","
+					+ std::to_string(cpu.steering_wall_clock_ms) + ","
+					+ std::to_string(cpu.rendering_fps_ms) + "\n";
+				//std::cout << "FrameId=" << cpu.frame_id << ", TexId=" << cpu.texture_frame_id << ", deltaMS= " << cpu.steering_fps_ms <<std::endl;
 
 			}
 
@@ -587,7 +621,9 @@ int main(int argc, char** argv)
 			latency_measurements_index++;
 			latency_measurements[latency_ssbo_index].frame_id = frame_id;
 			latency_measurements[latency_ssbo_index].texture_frame_id = 42;
-			latency_measurements[latency_ssbo_index].frame_delay_ms = FpMilliseconds(current_time - last_time).count();
+			latency_measurements[latency_ssbo_index].steering_fps_ms = last_frame_ms;
+			latency_measurements[latency_ssbo_index].steering_wall_clock_ms = FpMilliseconds(current_time - program_start_time).count();
+			latency_measurements[latency_ssbo_index].rendering_fps_ms = -1.0f;
 		}
 
 		glUniform1i(uniform_latency_measure_active, latency_measure_active ? 1 : 0);

@@ -165,7 +165,7 @@ static const std::vector<DataProtocol> protocol_addresses = {
 	}},
 };
 
-static const std::string texture_sharing_address = "/mint/texturesharing";
+static const std::string texture_sharing_address = "/mint/texturesharing/";
 
 static Addresses session_addresses;
 static interop::ImageProtocol session_texture_sharing;
@@ -315,7 +315,7 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
 	if (!m_sender)
 		return;
 
-	m_name = texture_sharing_address + "/" + name;
+	m_name = texture_sharing_address + name;
 
 	m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
@@ -399,7 +399,7 @@ void interop::TextureReceiver::init(std::string name) {
 	if (name.size() == 0 || name.size() > 256)
 		return;
 
-	m_name = texture_sharing_address + "/" + name;
+	m_name = texture_sharing_address + name;
 	m_name.resize(256, '\0'); // Spout doc says sender name MUST have 256 bytes
 
 	m_spout->SetVerticalSync(0);
@@ -548,21 +548,21 @@ void interop::StereoTextureSender::send(glFramebuffer& fb_left,
 	glFramebuffer& fb_right,
 	const uint width,
 	const uint height,
-	const uint meta_data) {
+	const uint meta_data, const uint meta_data_2) {
 	this->send(fb_left.m_glTextureRGBA8, fb_right.m_glTextureRGBA8,
 		fb_left.m_glTextureDepth, fb_right.m_glTextureDepth,
-		width, height, meta_data);
+		width, height, meta_data, meta_data_2);
 }
 
 void interop::StereoTextureSender::send(
 	const uint color_left, const uint color_right, const uint depth_left,
 	const uint depth_right, const uint width, const uint height,
-	const uint meta_data) {
+	const uint meta_data, const uint meta_data_2) {
 	if (m_width != width || m_height != height)
 		this->makeHugeTexture(width, height);
 
 	this->blitTextures(color_left, color_right, depth_left, depth_right, width,
-		height, meta_data);
+		height, meta_data, meta_data_2);
 
 	m_hugeTextureSender.send(m_hugeFbo);
 }
@@ -600,6 +600,7 @@ void interop::StereoTextureSender::initGLresources() {
 	uniform sampler2D right_depth;
 	uniform ivec2 texture_size;
 	uniform int meta_data;
+	uniform int meta_data_2;
 
 	out vec4 FragColor;
 
@@ -610,6 +611,10 @@ void interop::StereoTextureSender::initGLresources() {
 
 		if(screen_coords == ivec2(0,0)) {
 			FragColor = unpackUnorm4x8(uint(meta_data));
+			return;
+		}
+		if(screen_coords == ivec2(1,0)) {
+			FragColor = unpackUnorm4x8(uint(meta_data_2));
 			return;
 		}
 
@@ -674,6 +679,7 @@ void interop::StereoTextureSender::initGLresources() {
 	m_uniform_locations[3] = mglGetUniformLocation(m_shader, "right_color");
 	m_uniform_locations[4] = mglGetUniformLocation(m_shader, "right_depth");
 	m_uniform_locations[5] = mglGetUniformLocation(m_shader, "meta_data");
+	m_uniform_locations[6] = mglGetUniformLocation(m_shader, "meta_data_2");
 
 	mglGenVertexArrays(1, &m_vao);
 }
@@ -686,7 +692,7 @@ void interop::StereoTextureSender::destroyGLresources() {
 void interop::StereoTextureSender::blitTextures(
 	const uint color_left_texture, const uint color_right_texture,
 	const uint depth_left_texture, const uint depth_right_texture,
-	const uint width, const uint height, const uint meta_data) {
+	const uint width, const uint height, const uint meta_data, const uint meta_data_2) {
 	GLint previous_active_texture;
 	glGetIntegerv(GL_ACTIVE_TEXTURE, &previous_active_texture);
 
@@ -713,6 +719,7 @@ void interop::StereoTextureSender::blitTextures(
 	bindTexture(m_uniform_locations[3], color_right_texture, 2);
 	bindTexture(m_uniform_locations[4], depth_right_texture, 3);
 	mglUniform1i(m_uniform_locations[5], static_cast<int>(meta_data));
+	mglUniform1i(m_uniform_locations[6], static_cast<int>(meta_data_2));
 
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
@@ -1056,20 +1063,6 @@ namespace interop {
 	}
 } // namespace interop
 
-#define make_dataGet(DataTypeName)                                 \
-  template <>                                                                  \
-  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName) {        \
-    if (auto data = this->receiveCopy(filterName); data.has_value()) {         \
-      auto &byteData = data.value();                                          \
-      if (byteData.size()) {                                                   \
-        json j = json::parse(byteData);                                        \
-        v = j.get<DataTypeName>();                                             \
-        return true;                                                           \
-      }                                                                        \
-    }                                                                          \
-                                                                               \
-    return false;                                                              \
-  }
 
 #define make_name(DataType, DataTypeName) \
     template <> \
@@ -1092,6 +1085,26 @@ make_named_receive(interop::StereoCameraView);
 make_named_receive(interop::StereoCameraViewRelative);
 #undef make_named_receive
 
+#define make_dataGet(DataTypeName)\
+  template <> bool interop::DataReceiver::receive<DataTypeName>(\
+	DataTypeName &v,\
+	const std::string &filterName,\
+ 	std::optional<std::pair<std::string,std::string>>& maybe_extra)\
+{        \
+    if (auto data = this->receiveCopy(filterName); data.has_value()) {         \
+      auto &byteData = data.value();                                          \
+      if (byteData.size()) {                                                   \
+        json j = json::parse(byteData);                                        \
+        v = j.get<DataTypeName>();                                             \
+		if(maybe_extra.has_value()) \
+			maybe_extra.value().second = j[maybe_extra.value().first]; \
+        return true;                                                           \
+      }                                                                        \
+    }                                                                          \
+                                                                               \
+    return false;                                                              \
+  }
+
 // when adding to those macros, don't forget to also define 'to_json' and
 // 'from_json' functions above for the new data type
 make_dataGet(interop::BoundingBoxCorners);
@@ -1105,33 +1118,83 @@ make_dataGet(interop::StereoCameraViewRelative);
 make_dataGet(interop::CameraView);
 make_dataGet(interop::mat4);
 make_dataGet(interop::vec4);
+#undef make_dataGet
+
+#define make_dataGet(DataTypeName)\
+  template <> bool interop::DataReceiver::receive<DataTypeName>(\
+	DataTypeName &v,\
+	const std::string &filterName\
+)\
+{        \
+	auto m = std::optional<std::pair<std::string,std::string>>();\
+    return this->receive(v, filterName, m); \
+  }
+make_dataGet(interop::BoundingBoxCorners);
+make_dataGet(interop::DatasetRenderConfiguration);
+make_dataGet(interop::ModelPose);
+make_dataGet(interop::StereoCameraConfiguration);
+make_dataGet(interop::CameraConfiguration);
+make_dataGet(interop::CameraProjection);
+make_dataGet(interop::StereoCameraView);
+make_dataGet(interop::StereoCameraViewRelative);
+make_dataGet(interop::CameraView);
+make_dataGet(interop::mat4);
+make_dataGet(interop::vec4);
+#undef make_dataGet
 
 #define make_scalar_get(DataTypeName)                                          \
   template <>                                                                  \
-  bool interop::DataReceiver::receive<DataTypeName>(DataTypeName &v, const std::string &filterName) {        \
+  bool interop::DataReceiver::receive<DataTypeName>(\
+	DataTypeName &v, \
+	const std::string &filterName, \
+ 	std::optional<std::pair<std::string/*name*/, std::string/*value*/>>& maybe_extra \
+) {        \
     if (auto data = this->receiveCopy(filterName); data.has_value()) {                   \
       auto &byteData = data.value();                                           \
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
         v = j["value"];                                                        \
+		if(maybe_extra.has_value()) \
+			maybe_extra.value().second = j[maybe_extra.value().first]; \
         return true;                                                           \
       }                                                                        \
     }                                                                          \
                                                                                \
     return false;                                                              \
   }
-
 make_scalar_get(bool);
 make_scalar_get(int);
 make_scalar_get(unsigned int);
 make_scalar_get(float);
 make_scalar_get(double);
+#undef make_scalar_get
+
+#define make_scalar_get(DataTypeName)                                          \
+  template <>                                                                  \
+  bool interop::DataReceiver::receive<DataTypeName>(\
+	DataTypeName &v, \
+	const std::string &filterName \
+) {        \
+	auto m = std::optional<std::pair<std::string,std::string>>();\
+    return this->receive(v, filterName, m); \
+  }
+make_scalar_get(bool);
+make_scalar_get(int);
+make_scalar_get(unsigned int);
+make_scalar_get(float);
+make_scalar_get(double);
+#undef make_scalar_get
 
 #define make_send(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      DataTypeName const &v, std::string const &filterName) {                  \
-    const json j = v;                                                          \
+	DataTypeName const &v, \
+	std::string const &filterName, \
+ 	std::optional<std::pair<std::string/*name*/, std::string/*value*/>> const& maybe_extra \
+	  ) {                  \
+    json j = v;                                                          \
+	if(maybe_extra.has_value()) \
+		j[maybe_extra.value().first] = maybe_extra.value().second; \
     const std::string jsonString = j.dump();                                   \
     return this->send_raw(jsonString, filterName);                             \
   }
@@ -1164,9 +1227,14 @@ make_named_send(interop::StereoCameraViewRelative);
 #define make_send_scalar(DataTypeName)                                            \
   template <>                                                                  \
   bool interop::DataSender::send<DataTypeName>(                            \
-      DataTypeName const &v, std::string const &filterName) {                  \
+	DataTypeName const &v, \
+	std::string const &filterName, \
+ 	std::optional<std::pair<std::string/*name*/, std::string/*value*/>> const& maybe_extra \
+) {                  \
     json j;\
     j["value"] = v;                                                          \
+	if(maybe_extra.has_value()) \
+		j[maybe_extra.value().first] = maybe_extra.value().second; \
     const std::string jsonString = j.dump();                                   \
     return this->send_raw(jsonString, filterName);                             \
   }

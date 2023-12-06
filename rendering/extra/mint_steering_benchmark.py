@@ -6,6 +6,9 @@ zmq_modes = ["ipc", "tcp"]
 spout_modes = ["gpu", "memshare"] # "cpu" mode broken in Spout, textures remain black
 
 image_size = "1920 1080"
+vive_pro_image_size = "1998 2130"
+
+image_size = vive_pro_image_size
 
 topic_string = "mintclose"
 
@@ -25,6 +28,7 @@ for z in zmq_modes:
         subprocess.Popen("rendering.exe --render-ms=0 {}".format(protocols), shell=True)
         time.sleep(5.0)
         subprocess.Popen("steering.exe --latency-file={} --latency-startup={} --latency-measure={} --image-size {} {}".format(latencyfile, latencystartup_sec, latencyduration_sec, image_size, protocols), shell=True)
+        # wait for closing signal from steering process
         while(True):
             time.sleep(5.0)
             tpc, msg = socket.recv_multipart()
