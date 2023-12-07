@@ -258,6 +258,9 @@ int main(int argc, char** argv)
 	float rendering_fps_target_ms = 0.0;
 	auto* fps_opt_opt = app.add_option("-r,--render-ms", rendering_fps_target_ms, "Frame time in miliseconds to target via render loop delay");
 
+	std::vector<int> image_size = { 800, 600 };
+	auto* image_size_used = app.add_option("-i,--image-size", image_size, "Size of shared image: -i width height")->expected(2);
+
 	bool vsync = false;
 	app.add_flag("--vsync", vsync, "Whether to activate vsync for this process");
 
@@ -399,8 +402,8 @@ int main(int argc, char** argv)
 	stereoCameraView.leftEyeView = defaultCameraView;
 	stereoCameraView.rightEyeView = defaultCameraView;
 
-	int width = 800, height = 600;
-	glfwGetFramebufferSize(window, &width, &height);
+	int fbo_width = 0, fbo_height = 0;
+	glfwGetFramebufferSize(window, &fbo_width, &fbo_height);
 
 	using namespace std::chrono_literals;
 	using FpMilliseconds = std::chrono::duration<float, std::chrono::milliseconds::period>;
@@ -451,9 +454,9 @@ int main(int argc, char** argv)
 		}
 		frame_timing_index = (frame_timing_index + 1) % frame_durations.size();
 
-		ratio = width / (float)height;
+		ratio = fbo_width / (float)fbo_height;
 		// default framebuffer
-		glViewport(0, 0, width, height);
+		glViewport(0, 0, fbo_width, fbo_height);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		data_sender.send(bboxCorners, mint::to_data_name(bboxCorners), std::pair{ std::string("timestamp"), current_time_string });
@@ -480,13 +483,13 @@ int main(int argc, char** argv)
 				cameraProjection.farClipPlane);
 
 			hasNewWindowSize =
-				(width != cameraProjection.pixelWidth)
-				|| (height != cameraProjection.pixelHeight);
-			if (hasNewWindowSize) {
-				width = cameraProjection.pixelWidth;
-				height = cameraProjection.pixelHeight;
-				glfwSetWindowSize(window, width, height);
-				std::cout << "texture size from projection: " << width << "x" << height << std::endl;
+				(fbo_width != cameraProjection.pixelWidth)
+				|| (fbo_height != cameraProjection.pixelHeight);
+			if (hasNewWindowSize && image_size_used->count() == 0) {
+				fbo_width = cameraProjection.pixelWidth;
+				fbo_height = cameraProjection.pixelHeight;
+				glfwSetWindowSize(window, fbo_width, fbo_height);
+				std::cout << "texture size from projection: " << fbo_width << "x" << fbo_height << std::endl;
 			}
 		}
 
@@ -494,13 +497,13 @@ int main(int argc, char** argv)
 
 		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender* ts)
 			{
-				if (hasNewWindowSize || width != fbo.m_width || height != fbo.m_height) {
-					fbo.resizeTexture(width, height);
+				if (hasNewWindowSize || fbo_width != fbo.m_width || fbo_height != fbo.m_height) {
+					fbo.resizeTexture(fbo_width, fbo_height);
 				}
 
 				// render into custom framebuffer
 				fbo.bind();
-				glViewport(0, 0, width, height);
+				glViewport(0, 0, fbo_width, fbo_height);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 				//const auto cameraModel = getModelMatrix(cameraPose);
@@ -524,7 +527,7 @@ int main(int argc, char** argv)
 
 				fbo.unbind();
 				if (ts) {
-					ts->send(fbo.m_glTextureRGBA8, width, height);
+					ts->send(fbo.m_glTextureRGBA8, fbo_width, fbo_height);
 					fbo.blitTexture(); // blit custom fbo to default framebuffer
 				}
 			};
@@ -560,7 +563,7 @@ int main(int argc, char** argv)
 		case TextureSenderMode::All:
 			[[fallthrough]];
 		case TextureSenderMode::Stereo:
-			textureSender.stereotextureSender.send(fbo_left, fbo_right, width, height, steering_frame_id, rendering_last_frame_ms);
+			textureSender.stereotextureSender.send(fbo_left, fbo_right, fbo_width, fbo_height, steering_frame_id, rendering_last_frame_ms);
 			break;
 		case TextureSenderMode::Single:
 			break;
