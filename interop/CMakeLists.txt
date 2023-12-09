@@ -25,6 +25,8 @@ endif()
 
 # find external dependencies (git submodules in ./external)
 # Spout2
+set(SKIP_INSTALL_ALL OFF CACHE INTERNAL "")
+set(SPOUT_BUILD_CMT OFF CACHE INTERNAL "")
 add_subdirectory(external/Spout2)
 
 # ZeroMQ
@@ -58,12 +60,12 @@ target_include_directories(interop
 # If we have compiler requirements for this library, list them here
 target_compile_features(interop
     #PUBLIC cxx_auto_type
-    PRIVATE cxx_std_14)
+    PRIVATE cxx_std_17)
 
 # Depend on a library that we defined in the top-level file
 target_link_libraries(interop
 	PRIVATE
-		Spout2
+		Spout_static
 		libzmq-static
 		cppzmq-static
 		nlohmann_json::nlohmann_json
@@ -71,7 +73,7 @@ target_link_libraries(interop
 
 # 'make install' to the correct locations (provided by GNUInstallDirs).
 include(GNUInstallDirs)
-install(TARGETS interop Spout2 #EXPORT MyLibraryConfig
+install(TARGETS interop Spout_static #EXPORT MyLibraryConfig
 	EXPORT interop-targets
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

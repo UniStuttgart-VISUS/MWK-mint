@@ -31,7 +31,7 @@ set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/glfw)
 # OpenGL
-find_package(OpenGL REQUIRED)
+find_package(OpenGL REQUIRED COMPONENTS OpenGL)
 
 # GLAD
 add_subdirectory(external/glad/)
@@ -48,15 +48,25 @@ add_subdirectory(external/glm/)
 # CLI11
 add_subdirectory(external/CLI11/)
 
-set(LINK_LIBS_EXTERNAL interop glad glm glfw CLI11 ${OPENGL_glu_LIBRARY})
+set(LINK_LIBS_EXTERNAL interop glad glm glfw CLI11 ${OPENGL_LIBRARIES} ${OPENGL_glu_LIBRARY})
 set(INCLUDE_LIBS_EXTERNAL ${OPENGL_INCLUDE_DIR})
 	
 # build render app
 add_executable(rendering src/rendering.cpp)
 target_include_directories(rendering PRIVATE ${INCLUDE_LIBS_EXTERNAL})
 target_link_libraries(rendering PRIVATE ${LINK_LIBS_EXTERNAL})
+install(TARGETS rendering #EXPORT MyLibraryConfig
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 	
 # build steering app
 add_executable(steering src/steering.cpp)
 target_include_directories(steering PRIVATE ${INCLUDE_LIBS_EXTERNAL})
 target_link_libraries(steering PRIVATE ${LINK_LIBS_EXTERNAL})
+install(TARGETS steering #EXPORT MyLibraryConfig
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)

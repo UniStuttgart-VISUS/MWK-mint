@@ -1,7 +1,9 @@
 ﻿#include "interop.hpp"
 
-#include "SpoutReceiver.h"
-#include "SpoutSender.h"
+#include "../external/Spout2/SPOUTSDK/SpoutGL/SpoutReceiver.h"
+#include "../external/Spout2/SPOUTSDK/SpoutGL/SpoutSender.h"
+//#include "SpoutReceiver.h"
+//#include "SpoutSender.h"
 #include <nlohmann/json.hpp>
 #include <zmq.hpp>
 
