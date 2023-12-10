@@ -37,7 +37,7 @@ namespace interop {
 		SingleStereo,
 	};
 
-	void init(Role r, DataProtocol dp = DataProtocol::IPC, ImageProtocol ip = ImageProtocol::GPU);
+	void init(Role r, DataProtocol dp = DataProtocol::TCP, ImageProtocol ip = ImageProtocol::GPU);
 
 	struct glFramebuffer {
 		void init(uint width = 1, uint height = 1);

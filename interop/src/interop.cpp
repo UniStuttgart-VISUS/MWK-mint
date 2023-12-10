@@ -144,8 +144,8 @@ static const void restorePreviousFbo(interop::glFramebuffer* fbo) {
 }
 
 struct Addresses {
-	std::string send;
-	std::string receive;
+	std::string send = "yet undefined";
+	std::string receive = "yet undefined";
 };
 
 struct DataProtocol {
@@ -332,8 +332,8 @@ void interop::TextureSender::init(std::string name, uint width, uint height) {
 	};
 
 	auto mode = static_cast<int>(session_texture_sharing);
-	if (!m_spout->SetShareMode(mode))
-		std::cout << "mint: setting spout texture sharing mode to " << map[mode] << std::endl;
+	m_spout->SetShareMode(mode);
+	std::cout << "mint: setting spout texture sharing mode to " << map[mode] << std::endl;
 
 	// DXGI_FORMAT_R8G8B8A8_UNORM; // default DX11 format - compatible with DX9
 	// (28)
@@ -412,8 +412,8 @@ void interop::TextureReceiver::init(std::string name) {
 	};
 
 	auto mode = static_cast<int>(session_texture_sharing);
-	if (!m_spout->SetShareMode(mode))
-		std::cout << "SPOUT: failed setting spout texture sharing mode to " << map[mode] << std::endl;
+	m_spout->SetShareMode(mode);
+	std::cout << "mint: setting spout texture sharing mode to " << map[mode] << std::endl;
 	bool active = false;
 	unsigned int w = 1, h = 1;
 
@@ -1098,7 +1098,7 @@ make_named_receive(interop::StereoCameraViewRelative);
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
         v = j.get<DataTypeName>();                                             \
-		if(maybe_extra.has_value()) \
+		if(maybe_extra.has_value() && j.contains(maybe_extra.value().first)) \
 			maybe_extra.value().second = j[maybe_extra.value().first]; \
         return true;                                                           \
       }                                                                        \
@@ -1156,7 +1156,7 @@ make_dataGet(interop::vec4);
       if (byteData.size()) {                                                   \
         json j = json::parse(byteData);                                        \
         v = j["value"];                                                        \
-		if(maybe_extra.has_value()) \
+		if(maybe_extra.has_value() && j.contains(maybe_extra.value().first)) \
 			maybe_extra.value().second = j[maybe_extra.value().first]; \
         return true;                                                           \
       }                                                                        \
