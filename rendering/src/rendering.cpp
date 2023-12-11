@@ -439,13 +439,6 @@ int main(int argc, char** argv)
 		last_frame_ms = last_frame_duration;
 		current_time_string = std::to_string(current_time.time_since_epoch().count());
 
-		if (rendering_fps_target_ms > 0.0f) {
-			auto diff = rendering_fps_target_ms - last_frame_duration;
-			last_fps_wait += diff * 0.1;
-			//std::cout << "diff " << diff << std::endl;
-			std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(last_fps_wait));
-		}
-
 		if (frame_timing_index == 0) {
 			float frame_ms = fps_average();
 			std::string fps_info = " | " + std::to_string(frame_ms) + " ms/f | " + std::to_string(1000.0f / frame_ms) + " fps";
@@ -494,6 +487,13 @@ int main(int argc, char** argv)
 		}
 
 		received_data |= data_receiver.receive<mint::StereoCameraViewRelative>(stereoCameraView);
+
+		if (rendering_fps_target_ms > 0.0f) {
+			auto diff = rendering_fps_target_ms - last_frame_duration;
+			last_fps_wait += diff * 0.1;
+			//std::cout << "diff " << diff << std::endl;
+			std::this_thread::sleep_for(std::chrono::duration<float, std::milli>(last_fps_wait));
+		}
 
 		const auto render = [&](mint::CameraView& camView, mint::glFramebuffer& fbo, mint::TextureSender* ts)
 			{
