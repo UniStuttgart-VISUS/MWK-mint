@@ -3,8 +3,14 @@
 cmake_minimum_required(VERSION 3.0)
 project(Glad)
 
-add_library(glad include/glad/glad.h src/glad.c)
+add_library(glad STATIC include/glad/glad.h src/glad.c)
 target_include_directories(glad PUBLIC include/)
+
+install(TARGETS glad #EXPORT MyLibraryConfig
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
 
 # Then in your main CMakeLists.txt file put:
 #   add_subdirectory(glad/)
